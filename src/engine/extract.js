@@ -16,6 +16,10 @@ export class Row {
     this.amountX1 = null;     // right edge, for the position cross-check
     this.balance = null;
     this.withdrawal = null; this.deposit = null;
+    // Withholding tax the bank took from this row (KTB Corporate prints it in
+    // its own column). Becomes a separate withdrawal row once verified.
+    this.tax = null;
+    this.isTax = false;
     this.notes = [];
     // Set only when the running balance confirmed this row - a real flag, so
     // a new kind of warning can never quietly weaken the balance check.
@@ -109,6 +113,8 @@ export function extractRows(pages, profile, facts) {
       row.channel = (buckets.channel ?? []).map(w => w.text).join(' ');
       row.details = (buckets.details ?? []).map(w => w.text).join(' ');
       row.balance = balances.length ? balances[balances.length - 1][1] : null;
+      const taxes = (buckets.tax ?? []).map(w => parseAmount(w.text)).filter(a => a);
+      row.tax = taxes.length ? taxes[taxes.length - 1] : null;
 
       // KTB prints the interest row as "0.00 tax  5.09 interest". A zero moves
       // no money; when a real amount sits beside it, it is not one.

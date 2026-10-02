@@ -97,3 +97,26 @@ test('pieces printed outside any span join as usual', async () => {
   const pages = await readWords(spans([['TRANS', null], ['FER', null]]), null, pdfjs);
   assert.deepEqual(pages[0].map(w => w.text), ['TRANSFER']);
 });
+
+// KTB Corporate: pages stored sideways, and a font whose tone marks / digits
+// have no real character. Made-up words only.
+import { cleanGlyphs, multiply, uprightMatrix } from '../src/engine/words.js';
+
+test('broken tone marks become a word break, broken digits vanish', () => {
+  assert.equal(cleanGlyphs('ทดสอบÉคำ'), 'ทดสอบ คำ');
+  assert.equal(cleanGlyphs('กขÊค'), 'กข ค');
+  assert.equal(cleanGlyphs('ทดสอบ/řŘŠ'), 'ทดสอบ/');
+  assert.equal(cleanGlyphs('Café 1,000.00'), 'Café 1,000.00');   // Latin text left alone
+});
+
+test('a page turned 90 degrees reads upright', () => {
+  // pdf.js viewport for a 595x842 page with /Rotate 90 at scale 1.
+  const vt = [0, 1, 1, 0, 0, 0];
+  const m = uprightMatrix(vt, 595);
+  // Text written up the unturned page at (100, 50) lands at x=50 on the turned one.
+  const t = multiply(m, [0, 1, -1, 0, 100, 50]);
+  assert.deepEqual(t.slice(0, 4), [1, 0, 0, 1]);   // now reads left to right
+  assert.equal(t[4], 50);
+  assert.equal(t[5], 595 - 100);
+  assert.deepEqual(uprightMatrix([1, 0, 0, -1, 0, 842], 842), [1, 0, 0, 1, 0, 0]);   // unturned: unchanged
+});

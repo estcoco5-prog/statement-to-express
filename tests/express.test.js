@@ -142,7 +142,10 @@ test('the Review workbook carries Transactions, Daily and Proof', () => {
   const sheets = buildWorkbook(rows, opening, closing, facts, checks, KBANK, 'x.pdf');
   assert.deepEqual(sheets.map(s => s.name), ['Transactions', 'Daily', 'Proof']);
   const tx = grid(sheets[0]);
-  assert.deepEqual(tx[1].slice(0, 3), ['2026-06-01', '', 'Opening balance']);
+  // Dates are real Excel dates shown DD/MM/YYYY, as the Express template asks.
+  assert.deepEqual(tx[1].slice(0, 3), [46174, '', 'Opening balance']);   // 2026-06-01
+  assert.equal(sheets[0].rows[1][0].style, DATE);
+  assert.equal(sheets[0].rows[2][0].style, DATE);
   assert.equal(tx[2][8], 'OK');
   assert.equal(grid(sheets[1]).length, 1 + 30 + 1);       // header, 30 days of June, totals
   assert.deepEqual(grid(sheets[1]).at(-1).slice(0, 2), ['30 days, 2 active', 2]);

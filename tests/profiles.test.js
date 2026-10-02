@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { PROFILES, identify, columnOf } from '../src/engine/profiles.js';
 
 test('six profiles in the Python order', () => {
-  assert.deepEqual(Object.keys(PROFILES), ['kbank', 'scb', 'ktb', 'uob', 'bbl', 'kkp']);
+  assert.deepEqual(Object.keys(PROFILES), ['kbank', 'scb', 'ktb', 'uob', 'bbl', 'kkp', 'ktbcorp']);
 });
 
 test('a column owns a word by its centre', () => {

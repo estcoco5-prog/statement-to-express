@@ -1,6 +1,7 @@
 // Step 4 - the proof.
 import { fmtMoney } from './money.js';
 import { periodBounds } from './dates.js';
+import { Row } from './extract.js';
 
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -23,9 +24,12 @@ export function classifyAndVerify(opening, rows, profile) {
       continue;
     }
     const delta = row.balance - running;
+    // A row the bank took tax from moves the balance by the amount less the
+    // tax (interest 39.68, tax 0.40: the balance rises 39.28).
+    const moved = row.tax ? delta + row.tax : delta;
 
-    if (delta !== 0 && Math.abs(Math.abs(delta) - row.amount) <= 0) {
-      if (delta > 0) row.deposit = row.amount; else row.withdrawal = row.amount;
+    if (moved !== 0 && Math.abs(Math.abs(moved) - row.amount) <= 0) {
+      if (moved > 0) row.deposit = row.amount; else row.withdrawal = row.amount;
       row.verified = true;
     } else if (delta === 0) {
       // Nothing to read the direction from; guessing from the column is unsafe.
@@ -33,7 +37,8 @@ export function classifyAndVerify(opening, rows, profile) {
         'out cannot be determined - check this row by hand');
     } else {
       row.notes.push(`balance chain broken: ${fmtMoney(running)} -> ${fmtMoney(row.balance)} is a ` +
-        `change of ${fmtMoney(delta)}, but the amount printed is ${fmtMoney(row.amount)}`);
+        `change of ${fmtMoney(delta)}, but the amount printed is ${fmtMoney(row.amount)}` +
+        (row.tax ? ` (tax ${fmtMoney(row.tax)})` : ''));
     }
 
     if (row.amountX1 !== null && profile.amountSplitX !== null && (row.withdrawal || row.deposit)) {
@@ -49,7 +54,32 @@ export function classifyAndVerify(opening, rows, profile) {
   for (const row of pending) {
     row.notes.push('no balance was printed after this row, so it could not be checked against one');
   }
+  splitTax(rows);
   return running;
+}
+
+export const TAX_LABEL = 'ภาษีหัก ณ ที่จ่าย';
+
+// Give the bank's withholding tax its own withdrawal row (Co 2026-10-02): the
+// interest is booked gross, the tax as money out. The interest row's balance
+// becomes the balance before the tax, the tax row's the printed one. A row the
+// balance did not confirm keeps its tax - it is flagged already.
+function splitTax(rows) {
+  const out = [];
+  for (const row of rows) {
+    out.push(row);
+    if (row.tax && row.verified) {
+      const tax = new Row();
+      tax.date = row.date; tax.time = row.time;
+      tax.description = tax.details = TAX_LABEL;
+      tax.amount = tax.withdrawal = row.tax;
+      tax.balance = row.balance;
+      tax.verified = tax.isTax = true;
+      row.balance = row.balance + row.tax;
+      out.push(tax);
+    }
+  }
+  rows.splice(0, rows.length, ...out);
 }
 
 // Rows that share one printed balance (on the group's last row): each row's
@@ -81,7 +111,10 @@ function verifyGroup(running, group, profile) {
 
 // The independent checks, each answerable yes or no: [label, passed, detail].
 export function buildChecks(opening, rows, closingComputed, facts) {
-  const withdrawals = rows.filter(r => r.withdrawal !== null).map(r => r.withdrawal);
+  // The bank's own withdrawal total leaves its tax out (seen on KTB
+  // Corporate), so tax rows are compared on their own line below.
+  const withdrawals = rows.filter(r => r.withdrawal !== null && !r.isTax).map(r => r.withdrawal);
+  const taxes = rows.filter(r => r.isTax).map(r => r.withdrawal);
   const deposits = rows.filter(r => r.deposit !== null).map(r => r.deposit);
   const checks = [];
 
@@ -118,6 +151,11 @@ export function buildChecks(opening, rows, closingComputed, facts) {
       checks.push([`Number of ${label} matches the bank's own count`, values.length === printedCount,
         `found ${values.length} vs printed ${printedCount}`]);
     }
+  }
+
+  if (taxes.length) {
+    checks.push(['Tax the bank withheld, written as its own withdrawal rows', true,
+      `${taxes.length} row(s), total ${sumText(taxes)}`]);
   }
 
   if (facts.opening_derived) {

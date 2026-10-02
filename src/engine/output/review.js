@@ -1,11 +1,18 @@
 // The Review workbook for one statement: Transactions, Daily, Proof. Ported
-// from the answer key's build_workbook. Dates are ISO TEXT on purpose.
-import { Sheet, Cell, money, HEADER, BOLD, BAD, PLAIN, MONEY, MONEY_BOLD } from './xlsx.js';
+// from the answer key's build_workbook. Dates are real dates shown DD/MM/YYYY.
+import { Sheet, Cell, money, HEADER, BOLD, BAD, PLAIN, MONEY, MONEY_BOLD, DATE } from './xlsx.js';
+import { excelSerial } from './express.js';
 import { parseDate } from '../dates.js';
 import { buildDaily } from '../daily.js';
 import { caveatFirst } from '../general.js';
 
 const basename = name => String(name).split(/[\\/]/).pop();
+// A real Excel date shown DD/MM/YYYY, like the Express template; a date that
+// could not be read stays as the text the bank printed.
+const dateCell = stamp => {
+  const serial = excelSerial(stamp);
+  return serial === null ? stamp : new Cell(serial, DATE);
+};
 const moneyOrBlank = v => (v !== null && v !== undefined ? money(v, MONEY) : new Cell('', MONEY));
 
 export function buildWorkbook(rows, opening, closingComputed, facts, checks, profile, source) {
@@ -18,15 +25,15 @@ export function buildWorkbook(rows, opening, closingComputed, facts, checks, pro
   const tx = new Sheet('Transactions', { widths: [12, 7, 26, 14, 14, 15, 22, 40, 34], freezeRows: 1 });
   tx.add(...['Date', 'Time', 'Description', 'Withdrawal', 'Deposit', 'Balance', 'Channel', 'Details', 'Check']
     .map(h => new Cell(h, HEADER)));
-  tx.add(new Cell(iso(facts.period_from), BOLD), '', new Cell('Opening balance', BOLD), '', '',
+  tx.add(dateCell(iso(facts.period_from)), '', new Cell('Opening balance', BOLD), '', '',
     money(opening, MONEY_BOLD), '', '', '');
   for (const row of rows) {
-    tx.add(row.date, row.time, row.description,
+    tx.add(dateCell(row.date), row.time, row.description,
       moneyOrBlank(row.withdrawal), moneyOrBlank(row.deposit), moneyOrBlank(row.balance),
       row.channel, row.details,
       row.ok ? new Cell('OK', PLAIN) : new Cell(row.notes.join('; '), BAD));
   }
-  tx.add(new Cell(iso(facts.period_to), BOLD), '', new Cell('Closing balance', BOLD), '', '',
+  tx.add(dateCell(iso(facts.period_to)), '', new Cell('Closing balance', BOLD), '', '',
     money(closingComputed, MONEY_BOLD), '', '', '');
 
   const days = buildDaily(rows, opening, iso(facts.period_from), iso(facts.period_to));
@@ -37,7 +44,7 @@ export function buildWorkbook(rows, opening, closingComputed, facts, checks, pro
   for (const day of days) {
     const check = !day.count ? new Cell('', PLAIN)                 // a quiet day has nothing to check
       : day.flagged ? new Cell(`${day.flagged} row(s) flagged`, BAD) : new Cell('OK', PLAIN);
-    daily.add(day.date, new Cell(day.count, PLAIN),
+    daily.add(dateCell(day.date), new Cell(day.count, PLAIN),
       moneyOrBlank(day.withdrawn), moneyOrBlank(day.deposited),
       moneyOrBlank(day.deposited - day.withdrawn), moneyOrBlank(day.balance), check);
   }
@@ -72,10 +79,8 @@ export function buildWorkbook(rows, opening, closingComputed, facts, checks, pro
   proof.add('');
   proof.add(new Cell('The rule every row is tested against', BOLD));
   proof.add("this row's balance = last row's balance + deposit - withdrawal");
-  proof.add('Dates are written as text in ISO form (2026-06-09) on purpose, so that ' +
-    'Excel cannot re-display them in the Buddhist calendar.');
-  proof.add('The Express import files beside this one are the one exception: ' +
-    'Express reads a real date, so they carry a real date forced to ' +
-    'DD/MM/YYYY Gregorian.');
+  proof.add('Dates are real Excel dates shown as DD/MM/YYYY (Western years), the ' +
+    'same as the Express template. The format is fixed in the file, so a ' +
+    'Thai Windows setting cannot turn them into Buddhist years.');
   return [tx, daily, proof];
 }

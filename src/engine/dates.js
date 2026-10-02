@@ -61,6 +61,17 @@ export function periodDates(text) {
   for (const [, d, mon, y] of text.matchAll(dMon)) {
     out.push(`${pad(Number(d))}/${pad(MONTHS[mon])}/${y}`);
   }
+  if (!out.length) {
+    // A list of whole months, "04/2026,05/2026,06/2026" (KTB Corporate): the
+    // period runs from the first day of the first to the last day of the last.
+    // Only 4-digit years - a month list gives nothing to anchor a 2-digit one to.
+    const months = [...text.matchAll(/(?<![\d/])(\d{1,2})\/(\d{4})(?![\d/])/g)];
+    if (months.length && months.every(([, m]) => Number(m) >= 1 && Number(m) <= 12)) {
+      const [, m0, y0] = months[0], [, m1, y1] = months[months.length - 1];
+      const last = new Date(Date.UTC(Number(y1), Number(m1), 0)).getUTCDate();
+      out.push(`01/${pad(Number(m0))}/${y0}`, `${pad(last)}/${pad(Number(m1))}/${y1}`);
+    }
+  }
   return out;
 }
 

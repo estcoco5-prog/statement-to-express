@@ -1,10 +1,9 @@
 // A real .xlsx workbook, ported from the answer key's xlsx_writer.py. Same XML,
 // same order, same escaping - the oracle compares every part as text.
 //
-// On OUR sheets dates are TEXT (2026-06-09): a Thai Windows install can show
-// real date values in the Buddhist Era, silently undoing the conversion.
-// The Express import sheets are the exception (Express needs a date serial);
-// their DATE style carries an explicit DD/MM/YYYY code, which is always
+// Every date is a real Excel date with the DATE style: an explicit DD/MM/YYYY
+// code, as the Express template asks. Excel's built-in date format would follow
+// a Thai Windows install into the Buddhist Era; an explicit code is always
 // rendered in the Gregorian calendar.
 import { zipStore } from './zip.js';
 

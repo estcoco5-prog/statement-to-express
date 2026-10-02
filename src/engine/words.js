@@ -161,6 +161,31 @@ export function applyActualText(items) {
   return joined.filter(it => !it.gap);
 }
 
+// Some Thai fonts (KTB Corporate) have glyphs with no real character: tone
+// marks come out as Latin letters ("É" for ่, "Ê" for ้) and some digits as
+// "řŘŠ...". The reference reader (Poppler) drops them - a word break for a
+// tone mark - so do the same, and both read "เครื องรับ..." identically.
+export function cleanGlyphs(str) {
+  return str
+    .replace(/(?<=[฀-๿])[À-ÿ]|[À-ÿ](?=[฀-๿])/g, ' ')
+    .replace(/[Ā-ſ]/g, '');
+}
+
+// [a b c d e f] matrices, pdf.js order: multiply(m1, m2) applies m2 first.
+export function multiply(m1, m2) {
+  return [
+    m1[0] * m2[0] + m1[2] * m2[1], m1[1] * m2[0] + m1[3] * m2[1],
+    m1[0] * m2[2] + m1[2] * m2[3], m1[1] * m2[2] + m1[3] * m2[3],
+    m1[0] * m2[4] + m1[2] * m2[5] + m1[4], m1[1] * m2[4] + m1[3] * m2[5] + m1[5],
+  ];
+}
+
+// The viewport maps the page to the screen as shown (turned, y down); flip y
+// back up so placeRun can measure the upright page like any other.
+export function uprightMatrix(viewportTransform, height) {
+  return multiply([1, 0, 0, -1, 0, height], viewportTransform);
+}
+
 // One array of words per page, y measured from the top of the page.
 // `pdfjs` is the imported pdf.js module, injected so that Node tests and the
 // browser share this code.
@@ -185,15 +210,23 @@ export async function readWords(bytes, password, pdfjs) {
     const pages = [];
     for (let n = 1; n <= doc.numPages; n++) {
       const page = await doc.getPage(n);
-      const height = page.getViewport({ scale: 1 }).height;
+      const viewport = page.getViewport({ scale: 1 });
+      const height = viewport.height;
+      // A page saved sideways (/Rotate 90 or 270) is shown upright by every
+      // viewer, but its text is stored in the unturned page's coordinates:
+      // each transaction would come out as a column instead of a row. Turn
+      // the text the same way the viewer turns the page.
+      const turn = page.rotate % 360 ? uprightMatrix(viewport.transform, height) : null;
       // Marked content only adds markers: pdf.js splits its text at every span
       // either way, so pages without ActualText read exactly as before.
       const content = await page.getTextContent({ includeMarkedContent: true });
       const words = [];
       for (const it of applyActualText(content.items)) {
         if (!it.str || !it.str.trim()) continue;
+        const str = cleanGlyphs(it.str);
+        if (!str.trim()) continue;
         const style = content.styles[it.fontName] ?? {};
-        words.push(...placeRun(it.str, it.transform, it.width,
+        words.push(...placeRun(str, turn ? multiply(turn, it.transform) : it.transform, it.width,
           style.ascent ?? 0.95, style.descent ?? -0.35, height));
       }
       pages.push(words);

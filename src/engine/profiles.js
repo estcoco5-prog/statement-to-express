@@ -185,7 +185,42 @@ const KKP = profile({
   },
 });
 
-export const PROFILES = { kbank: KBANK, scb: SCB, ktb: KTB, uob: UOB, bbl: BBL, kkp: KKP };
+
+// Krungthai Corporate Online / Krungthai Business "historical" statement - a
+// different form from the personal KTB one. Its pages are stored sideways
+// (/Rotate 90): readWords turns them upright. The item counts print in a font
+// whose digits do not decode, so only the totals and closing are read. Tax
+// (withholding on interest) has its own column and is not part of the amount.
+const KTB_CORP = profile({
+  key: "ktbcorp", bank: "KTB Corporate (กรุงไทย ธุรกิจ)",
+  columns: [
+    col("date", 0.0, 52.0),
+    col("time", 52.0, 80.0),
+    col("description", 80.0, 155.0),
+    col("details", 155.0, 420.0),
+    col("amount", 420.0, 625.0),
+    col("tax", 625.0, 670.0),
+    col("balance", 670.0, 758.0),
+    col("channel", 758.0, 842.0),
+  ],
+  amountSplitX: 560.0,
+  remarkFields: ["details"],
+  marks: {
+    identify: ["cash.management@krungthai.com"],
+    opening: ["ยอดคงเหลือยกมา"],
+    closing: ["ยอดยกไป"],
+    total_withdraw: ["รายการถอนเงิน"],
+    total_deposit: ["รายการฝากเงิน"],
+    period: ["รายการระหว่างวัน"],
+    account_no: ["บัญชี"],
+    account_name: ["อบัญชี"],
+    branch: [],
+    footer: ["ยอดยกไป", "รายการถอนเงิน", "รายการฝากเงิน", "ธนาคารกรุงไทย", "krungthai.com"],
+    furniture_text: ["รายการเดินบัญชี", "ยอดคงเหลือ", "หมายเลขเช็ค", "krungthai.com", "Corporate Call Center"],
+  },
+});
+
+export const PROFILES = { kbank: KBANK, scb: SCB, ktb: KTB, uob: UOB, bbl: BBL, kkp: KKP, ktbcorp: KTB_CORP };
 
 
 export function columnOf(p, x0, x1) {

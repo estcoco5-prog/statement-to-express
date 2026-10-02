@@ -53,3 +53,10 @@ test('addDays crosses month and leap-year ends in UTC', () => {
   assert.equal(addDays('2026-12-31', 1), '2027-01-01');
   assert.equal(addDays('2026-03-01', -1), '2026-02-28');
 });
+
+test('a period printed as a list of months', () => {
+  assert.deepEqual(periodDates('04/2026,05/2026,06/2026'), ['01/04/2026', '30/06/2026']);
+  assert.deepEqual(periodDates('02/2028'), ['01/02/2028', '29/02/2028']);   // leap year
+  assert.deepEqual(periodDates('13/2026'), []);                            // not a month
+  assert.deepEqual(periodDates('01/06/2026 - 30/06/2026'), ['01/06/2026', '30/06/2026']);
+});

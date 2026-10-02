@@ -220,3 +220,38 @@ test('a dated row with a warning is reported as an anomaly', () => {
   assert.deepEqual(byLabel(buildChecks(10000, [r], 9000, facts))['No other anomalies on any row'],
     [false, '1 row(s) carry a warning']);
 });
+
+// Co 2026-10-02: interest booked gross, the bank's withholding tax as its own
+// withdrawal row. Made-up figures, satang.
+import { classifyAndVerify, TAX_LABEL } from '../src/engine/verify.js';
+
+test('tax withheld from interest becomes its own withdrawal row', () => {
+  const pay = new Row();
+  pay.date = '2026-06-30'; pay.amount = 1000; pay.amountX1 = 400; pay.balance = 30000;
+  const interest = new Row();
+  interest.date = '2026-06-30'; interest.amount = 3968; interest.tax = 40;
+  interest.amountX1 = 613; interest.balance = 30000 + 3928;            // the balance moves by the net
+  const rows = [pay, interest];
+  const closing = classifyAndVerify(31000, rows, { amountSplitX: 560 });
+  assert.equal(closing, 33928);
+  assert.equal(rows.length, 3);
+  const [, gross, tax] = rows;
+  assert.deepEqual([gross.deposit, gross.balance, gross.verified], [3968, 33968, true]);
+  assert.deepEqual([tax.withdrawal, tax.balance, tax.isTax, tax.details], [40, 33928, true, TAX_LABEL]);
+  // The bank's printed withdrawal total leaves its tax out.
+  const facts = { closing_stated: 33928, withdraw_total: 1000, withdraw_count: null,
+    deposit_total: 3968, deposit_count: null, period_from: null, period_to: null };
+  const checks = byLabel(buildChecks(31000, rows, closing, facts));
+  assert.equal(checks["Total withdrawals matches the bank's own total"][0], true);
+  assert.deepEqual(checks['Tax the bank withheld, written as its own withdrawal rows'], [true, '1 row(s), total 0.40']);
+});
+
+test('a tax row the balance does not confirm is flagged, not split', () => {
+  const r = new Row();
+  r.date = '2026-06-30'; r.amount = 3968; r.tax = 40; r.balance = 31000 + 3968;   // tax not taken: chain broken
+  const rows = [r];
+  classifyAndVerify(31000, rows, { amountSplitX: null });
+  assert.equal(rows.length, 1);
+  assert.equal(r.verified, false);
+  assert.match(r.notes[0], /tax 0\.40/);
+});
