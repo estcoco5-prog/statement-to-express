@@ -1,0 +1,101 @@
+/* Statement → Express - same colour family as Pic-to-PDF, so the two feel like one site. */
+
+:root{
+  --screen:#F2F3F6; --sheet:#FFFFFF;
+  --ink:#111820; --ink2:#697585; --hair:#DFE3E9;
+  --accent:#0E5A61; --accent-soft:#DBEAEA; --accent-ink:#0A464B; --on-accent:#FFFFFF;
+  --good:#1E7A3C; --good-soft:#E3F2E7;
+  --wait:#8A6100; --wait-soft:#FBF1D5;
+  --bad:#B42318; --bad-soft:#FBE7E5;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --screen:#0D1116; --sheet:#171D24;
+    --ink:#E8ECF1; --ink2:#8D99A6; --hair:#262E37;
+    --accent:#63C4C8; --accent-soft:#153033; --accent-ink:#8FD9DC; --on-accent:#0B1013;
+    --good:#6FCF8E; --good-soft:#15291C;
+    --wait:#E8C25A; --wait-soft:#2B2412;
+    --bad:#F28B82; --bad-soft:#2E1715;
+  }
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--screen); color:var(--ink);
+  font:16px/1.55 "Segoe UI","Leelawadee UI",Tahoma,-apple-system,Roboto,system-ui,sans-serif;
+}
+/* One centred column; everything inside fills its box - no capped line length. */
+.page{max-width:1040px; margin:0 auto; padding:24px 16px 48px}
+h1{margin:0; font-size:30px; font-weight:800; letter-spacing:-.02em}
+h2{margin:0 0 4px; font-size:20px}
+p{margin:6px 0}
+.privacy{color:var(--accent-ink); font-weight:600}
+.sub{color:var(--ink2); margin-top:0}
+.hint{color:var(--ink2); font-size:14px}
+.bad{color:var(--bad); font-weight:600}
+.top{margin-bottom:18px}
+
+/* the two tools */
+.tools{display:grid; grid-template-columns:1fr; gap:14px; margin-bottom:18px}
+@media (min-width:720px){ .tools{grid-template-columns:3fr 2fr} }
+.tool{
+  background:var(--sheet); border:1px solid var(--hair); border-radius:14px; padding:18px;
+  color:inherit; text-decoration:none; display:flex; flex-direction:column; gap:4px;
+}
+.tool.dragging{border:2px dashed var(--accent); background:var(--accent-soft)}
+.tool.link:hover{border-color:var(--accent)}
+.btn{
+  display:inline-block; align-self:flex-start; margin-top:8px; font:inherit; font-weight:700;
+  border:1px solid var(--hair); border-radius:10px; padding:9px 16px; cursor:pointer;
+  background:var(--sheet); color:var(--accent-ink); text-decoration:none;
+}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:var(--on-accent)}
+.btn:focus-visible,input:focus-visible,.tool.link:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+/* password */
+.panel{background:var(--sheet); border:2px solid var(--accent); border-radius:14px; padding:18px; margin-bottom:18px}
+.panel[hidden],#results[hidden]{display:none}
+.pwrow{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.pwrow input{flex:1 1 220px; font:inherit; padding:9px 12px; border:1px solid var(--hair); border-radius:10px;
+  background:var(--screen); color:var(--ink)}
+.pwrow .btn{margin-top:0}
+
+.progress{color:var(--ink2); min-height:1.5em}
+
+/* results */
+.banner{border-radius:14px; padding:14px 18px; margin-bottom:14px; font-weight:700; font-size:18px}
+.banner .th{display:block; font-weight:500; font-size:15px}
+.s-green{background:var(--good-soft); color:var(--good)}
+.s-yellow{background:var(--wait-soft); color:var(--wait)}
+.s-red,.s-blocked{background:var(--bad-soft); color:var(--bad)}
+.card{background:var(--sheet); border:1px solid var(--hair); border-radius:14px; padding:18px; margin-bottom:14px}
+.card h3{margin:0; font-size:18px}
+.card .status{margin:6px 0 10px; padding:8px 12px; border-radius:10px; font-weight:600}
+.caveat{background:var(--wait-soft); color:var(--wait); border-radius:10px; padding:8px 12px; font-weight:600; margin:0 0 10px}
+.refusal{border-left:4px solid var(--bad)}
+.refusal .detail{color:var(--ink2); font-size:14px}
+table{width:100%; border-collapse:collapse; margin:6px 0 10px; font-size:15px}
+th,td{text-align:left; padding:6px 8px; border-bottom:1px solid var(--hair); vertical-align:top}
+th{color:var(--ink2); font-weight:600; font-size:13px}
+td.num{text-align:right; font-variant-numeric:tabular-nums}
+.checks{margin:6px 0 10px; padding-left:0; list-style:none; font-size:15px}
+.checks li{padding:2px 0}
+.dl{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:6px}
+.dl .btn{margin-top:0}
+.steps{margin:6px 0 4px; font-size:14px; color:var(--ink2)}
+.steps b{color:var(--ink)}
+.table-wrap{overflow-x:auto}
+
+/* bank list */
+.banks{margin-top:26px; background:var(--sheet); border:1px solid var(--hair); border-radius:14px; padding:18px}
+.banks ul{margin:6px 0; padding-left:0; list-style:none}
+.banks li{padding:2px 0}
+
+.updatebar{
+  position:fixed; left:0; right:0; top:0; z-index:12; background:var(--accent); color:var(--on-accent);
+  padding:8px 16px; display:flex; gap:12px; align-items:center; justify-content:center; font-size:14px; font-weight:600;
+}
+.updatebar[hidden]{display:none}
+.updatebar button{font:inherit; font-weight:700; border:0; border-radius:8px; padding:5px 12px;
+  background:var(--on-accent); color:var(--accent); cursor:pointer}

@@ -1,0 +1,11 @@
+samples/
+oracle/
+node_modules/
+*.pdf
+!tests/fixtures/*.pdf
+*.xlsx
+*.jpg
+*.jpeg
+*.png
+!icons/*.png
+.DS_Store

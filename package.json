@@ -1,0 +1,15 @@
+{
+  "name": "statement-to-express",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bank statement PDF to Express X Import file, entirely in the browser",
+  "scripts": {
+    "test": "node --test",
+    "serve": "python -m http.server 8141",
+    "vendor": "node tools/vendor-pdfjs.mjs"
+  },
+  "devDependencies": {
+    "pdfjs-dist": "6.3.289"
+  }
+}

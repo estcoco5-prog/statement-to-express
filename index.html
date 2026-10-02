@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E5A61">
+<meta name="description" content="Bank statement PDFs into Express import files, proved row by row. Everything stays on this computer.">
+<title>Statement → Express</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<div class="updatebar" id="updatebar" hidden>
+  <span>A newer version is ready / มีเวอร์ชันใหม่</span>
+  <button type="button" id="reloadBtn">Reload</button>
+</div>
+
+<div class="page">
+
+  <header class="top">
+    <h1>Statement → Express</h1>
+    <p class="privacy">🔒 Your files never leave this computer · ไฟล์ไม่ถูกส่งออกจากเครื่องนี้</p>
+  </header>
+
+  <section class="tools" aria-label="Tools">
+    <div class="tool" id="dropzone">
+      <h2>Bank PDF → Express</h2>
+      <p class="sub">ใบแจ้งยอด PDF → ไฟล์นำเข้า Express</p>
+      <p>Choose one or many bank statement PDFs - several months, several accounts. You get one Express
+        import file per account, and a Review file for each statement. · เลือกได้หลายไฟล์ หลายเดือน หลายบัญชี</p>
+      <label class="btn primary" for="picker">Choose PDFs · เลือกไฟล์ PDF</label>
+      <input type="file" id="picker" accept="application/pdf,.pdf" multiple hidden>
+      <p class="hint">or drop them here · หรือลากไฟล์มาวางที่นี่</p>
+    </div>
+
+    <a class="tool link" href="https://estcoco5-prog.github.io/Pic-to-PDF/" rel="noopener">
+      <h2>Photos → PDF</h2>
+      <p class="sub">รูปถ่าย → PDF</p>
+      <p>Any photos into one PDF, with the Pic-to-PDF app. Not for statements: for bank statements, use
+        Bank PDF → Express. · สำหรับรูปทั่วไป ไม่ใช่ใบแจ้งยอด</p>
+      <span class="btn">Open Pic-to-PDF ↗</span>
+    </a>
+  </section>
+
+  <section class="panel" id="passwordPanel" hidden>
+    <h2>🔒 <span id="lockedName"></span></h2>
+    <p id="lockedMore" class="sub"></p>
+    <p id="passwordWrong" class="bad" hidden></p>
+    <form id="passwordForm" class="pwrow">
+      <input type="password" id="passwordInput" autocomplete="off" spellcheck="false"
+             aria-label="Password / รหัสผ่าน" placeholder="Password · รหัสผ่าน">
+      <button type="submit" class="btn primary">Open · เปิด</button>
+      <button type="button" class="btn" id="skipBtn">Skip · ข้าม</button>
+    </form>
+    <p class="hint">The password is used once to open the file, then forgotten. · ใช้รหัสผ่านเพื่อเปิดไฟล์ครั้งเดียว แล้วลืมทันที</p>
+  </section>
+
+  <p class="progress" id="progress" role="status" aria-live="polite"></p>
+
+  <section id="results" hidden>
+    <div class="banner" id="banner"></div>
+    <div id="refusals"></div>
+    <div id="accounts"></div>
+    <button type="button" class="btn" id="againBtn">Start again · เริ่มใหม่</button>
+  </section>
+
+  <section class="banks" aria-label="Banks">
+    <h2>Banks · ธนาคาร</h2>
+    <ul id="bankList"></ul>
+    <ul>
+      <li>🟡 Other banks: tried with a general reader, not tested yet · ธนาคารอื่น: ลองอ่านได้ แต่ยังไม่ได้ทดสอบ</li>
+      <li>⛔ Photos and scanned PDFs cannot be read here - ask for the bank's own PDF · รูปถ่ายและไฟล์สแกนอ่านไม่ได้</li>
+    </ul>
+    <p class="hint">🟢 proved and confirmed · 🟡 amounts proved; check dates and descriptions by eye ·
+      🔴 a check failed (Review file only) · ⛔ cannot read</p>
+  </section>
+
+</div>
+
+<script type="module" src="./src/app.js"></script>
+</body>
+</html>
