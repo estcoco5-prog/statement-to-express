@@ -112,6 +112,7 @@ export function extractRows(pages, profile, facts) {
       row.description = (buckets.description ?? []).map(w => w.text).join(' ');
       row.channel = (buckets.channel ?? []).map(w => w.text).join(' ');
       row.details = (buckets.details ?? []).map(w => w.text).join(' ');
+      if (!row.details && profile.codeNames?.[row.description]) row.details = profile.codeNames[row.description];
       row.balance = balances.length ? balances[balances.length - 1][1] : null;
       const taxes = (buckets.tax ?? []).map(w => parseAmount(w.text)).filter(a => a);
       row.tax = taxes.length ? taxes[taxes.length - 1] : null;

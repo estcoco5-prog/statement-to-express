@@ -255,3 +255,11 @@ test('a tax row the balance does not confirm is flagged, not split', () => {
   assert.equal(r.verified, false);
   assert.match(r.notes[0], /tax 0\.40/);
 });
+
+test('a known code with no details gets plain words; an unknown code is left alone', () => {
+  const page = [...headerLines(), ...openingLine(193),
+    ...txLine(205, { date: '09-06-26', desc: 'โอนเงิน', withdraw: '10,000.00', balance: '21,234.56' }),
+    ...txLine(217, { date: '30-06-26', desc: 'ดอกเบี้ย', deposit: '65.43', balance: '21,299.99' })];
+  const { rows } = run([page], { ...KBANK, codeNames: { 'ดอกเบี้ย': 'ดอกเบี้ยเงินฝาก' } });
+  assert.deepEqual(rows.map(r => r.details), ['', 'ดอกเบี้ยเงินฝาก']);
+});

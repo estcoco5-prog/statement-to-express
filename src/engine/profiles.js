@@ -17,7 +17,7 @@ export const col = (name, lo, hi) => ({ name, lo, hi });
 export function profile(p) {
   const marks = { total_items: [], totals_line: [], ...p.marks };
   return { dateOrder: 'dmy', dateStyle: 'numeric', balanceEveryRow: true,
-           openingPrinted: true, remarkFields: null, untested: false, wrapReach: null, ...p, marks };
+           openingPrinted: true, remarkFields: null, untested: false, wrapReach: null, codeNames: {}, ...p, marks };
 }
 
 const KBANK = profile({
@@ -205,6 +205,9 @@ const KTB_CORP = profile({
   ],
   amountSplitX: 560.0,
   remarkFields: ["details"],
+  // IIPS: posted at month end with exactly 1% tax withheld - deposit interest.
+  // SDCH / SDTRC print no details either, but nothing says what they are.
+  codeNames: { IIPS: "ดอกเบี้ยเงินฝาก" },
   marks: {
     identify: ["cash.management@krungthai.com"],
     opening: ["ยอดคงเหลือยกมา"],

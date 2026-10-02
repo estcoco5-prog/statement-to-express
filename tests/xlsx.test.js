@@ -76,3 +76,11 @@ test('zipStore stores names in UTF-8', () => {
   const parts = unzip(zipStore([{ name: 'ก.txt', data: 'x' }]));
   assert.deepEqual(parts, { 'ก.txt': 'x' });
 });
+
+test('cells the team must fill are yellow and formatted as text', async () => {
+  const { workbookParts: parts, Sheet: S, Cell: C, TODO: T } = await import('../src/engine/output/xlsx.js');
+  const sh = new S('x'); sh.add(new C('', T));
+  const styles = parts([sh]).find(p => p.name === 'xl/styles.xml').text;
+  const xfs = /<cellXfs[^>]*>([\s\S]*?)<\/cellXfs>/.exec(styles)[1].trim().split('\n');
+  assert.match(xfs[T], /numFmtId="49".*fillId="3"/);
+});
