@@ -26,12 +26,34 @@ export const MESSAGES = {
     en: 'This is not a PDF that can be opened (for example a photo or an Excel file).',
   },
   'no-text': {
-    th: 'PDF นี้เป็นรูปภาพล้วน ไม่มีตัวอักษรให้อ่าน โปรดขอไฟล์ PDF ของธนาคารจากลูกค้า',
-    en: "This PDF is pictures only, with no text to read. Ask the client for the bank's own PDF.",
+    th: 'PDF นี้เป็นรูปภาพล้วน (ไฟล์สแกน) กด "อ่านเป็นรูปถ่าย" เพื่ออ่านจากรูป',
+    en: 'This PDF is pictures only (a scan). Press "Read it as photos" to read it from the pictures.',
+  },
+  'summary-only': {
+    th: 'มีแต่หน้าสรุปบัญชี ไม่มีหน้ารายการเดินบัญชี ถ่ายหน้ารายการมาด้วย',
+    en: 'Only the account summary page was given - add the pages with the transactions.',
+  },
+  'mixed-banks': {
+    th: 'รูปชุดนี้มาจากใบแจ้งยอดต่างธนาคารกัน ส่งทีละใบแจ้งยอด',
+    en: 'These photos are from statements of different banks. Send one statement at a time.',
   },
   'unknown-bank': {
     th: 'อ่านรูปแบบใบแจ้งยอดนี้ไม่ได้ ยังไม่รู้จักธนาคารนี้ และตารางไม่ใช่แบบง่าย',
     en: "This statement's layout could not be read: the bank is not known yet and its table is not a simple one.",
+  },
+  'too-blurry': {
+    th: 'ถ่ายใกล้ขึ้น ถ่ายจากกระดาษ วางราบ สว่าง เต็มกรอบ ห้ามถ่ายจากหน้าจอ',
+    en: 'Too small or blurry to read. Take the photo closer, of the PAPER statement, flat and bright, ' +
+      'filling the frame. Never photograph a screen - ask the client for the bank PDF instead.',
+  },
+  'unknown-layout': {
+    th: 'หาหัวคอลัมน์ของธนาคารในรูปไม่พบ หรือธนาคารนี้ยังไม่มีรูปแบบในระบบ ถ่ายใหม่ให้เห็นหัวตารางชัดเจน',
+    en: "Could not find this bank's column headings in the photo, or this bank has no layout on file yet. " +
+      'Retake it with the table headings clearly in the frame.',
+  },
+  'heic': {
+    th: 'กรุณาส่งรูปเป็น JPEG (LINE ส่งเป็น JPEG อยู่แล้ว)',
+    en: 'Please use JPEG photos (LINE already sends JPEG). iPhone HEIC photos cannot be opened here.',
   },
   'refused': {
     th: 'อ่านใบแจ้งยอดนี้อย่างปลอดภัยไม่ได้ จึงไม่ได้สร้างไฟล์',
@@ -44,9 +66,20 @@ export const STATUS_TEXT = {
   green: { icon: '🟢', en: 'Proved and confirmed', th: 'ตรวจครบและยืนยันแล้ว' },
   yellow: { icon: '🟡', en: 'Proved, nothing independent confirms it - amounts proved; check dates and descriptions by eye',
     th: 'ยอดเงินตรวจแล้ว โปรดตรวจวันที่และรายละเอียดด้วยตา' },
+  // Decision B: a photo statement whose proved rows go to Express, the rest listed.
+  partial: { icon: '🟠', en: 'Partly proved - the proved rows go to Express; check the listed rows by hand',
+    th: 'ตรวจได้บางส่วน - รายการที่ตรวจแล้วเข้า Express; รายการที่เหลือตรวจเองตามรายการที่แจ้ง' },
   red: { icon: '🔴', en: 'A check failed - Review file only, no Express file for that month',
     th: 'มีการตรวจที่ไม่ผ่าน - เดือนนั้นมีเฉพาะไฟล์ตรวจสอบ ไม่มีไฟล์ Express' },
   blocked: { icon: '⛔', en: 'Nothing could be read', th: 'อ่านไฟล์ไม่ได้' },
+};
+
+// Decision B (Co 2026-10-07): a photo statement with some rows unproved.
+export const PARTIAL_TEXT = {
+  en: p => `${p.toExpress} proved rows go to Express; ${p.toCheck} row(s) to check by hand` +
+    (p.pages.length ? ` on photo page ${p.pages.join(', ')}` : '') + ' - listed on the "Rows to check" sheet',
+  th: p => `${p.toExpress} รายการตรวจแล้วเข้า Express; ${p.toCheck} รายการต้องตรวจเอง` +
+    (p.pages.length ? ` (รูปหน้า ${p.pages.join(', ')})` : '') + ' ดูชีต "Rows to check"',
 };
 
 export const UNTESTED_TEXT = {
@@ -54,7 +87,12 @@ export const UNTESTED_TEXT = {
   th: 'ธนาคารนี้ยังไม่ได้ทดสอบ ยอดเงินตรวจด้วยยอดคงเหลือแล้ว โปรดตรวจวันที่และรายละเอียดด้วยตา',
 };
 
-const RANK = { green: 0, yellow: 1, red: 2 };
+export const PHOTO_TEXT = {
+  en: 'Read from a photo. Amounts are proved by the balance; compare dates and descriptions to the photo by eye.',
+  th: 'อ่านจากรูปถ่าย ยอดเงินตรวจด้วยยอดคงเหลือแล้ว โปรดตรวจวันที่และรายละเอียดเทียบกับรูปด้วยตา',
+};
+
+const RANK = { green: 0, yellow: 1, partial: 2, red: 3 };
 const worst = statuses => statuses.reduce((w, s) => (RANK[s] > RANK[w] ? s : w), 'green');
 
 // Screens get shared and photographed: show only the last 4 digits.
@@ -68,6 +106,7 @@ export function summarise(results) {
     bank: g.bank ?? '',
     account: maskAccount(g.account),
     untested: Boolean(g.untested),
+    photo: Boolean(g.photo),
     status: worst(g.statuses),
     statements: g.statements ?? [],
     checks: g.checks ?? [],

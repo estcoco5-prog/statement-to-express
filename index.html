@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0E5A61">
 <meta name="description" content="Bank statement PDFs into Express import files, proved row by row. Everything stays on this computer.">
@@ -35,11 +35,22 @@
       <p class="hint">or drop them here · หรือลากไฟล์มาวางที่นี่</p>
     </div>
 
+    <div class="tool" id="photoTool">
+      <h2>Statement photos → Express</h2>
+      <p class="sub">รูปถ่ายใบแจ้งยอด → Express</p>
+      <p>Photos of a PAPER bank statement, one photo per page. You get a readable PDF, then the same
+        checks and Express file as a bank PDF - but never better than 🟡. · ถ่ายจากกระดาษ หนึ่งรูปต่อหนึ่งหน้า</p>
+      <label class="btn primary" for="photoPicker">Choose photos · เลือกรูป</label>
+      <input type="file" id="photoPicker" accept="image/jpeg,image/png,.jpg,.jpeg,.png" multiple hidden>
+      <p class="hint">Flat, bright, the whole page in the frame. Never a photo of a screen. ·
+        วางราบ สว่าง เห็นทั้งหน้า ห้ามถ่ายจากหน้าจอ</p>
+    </div>
+
     <a class="tool link" href="https://estcoco5-prog.github.io/Pic-to-PDF/" rel="noopener">
       <h2>Photos → PDF</h2>
       <p class="sub">รูปถ่าย → PDF</p>
       <p>Any photos into one PDF, with the Pic-to-PDF app. Not for statements: for bank statements, use
-        Bank PDF → Express. · สำหรับรูปทั่วไป ไม่ใช่ใบแจ้งยอด</p>
+        Bank PDF → Express or Statement photos → Express. · สำหรับรูปทั่วไป ไม่ใช่ใบแจ้งยอด</p>
       <span class="btn">Open Pic-to-PDF ↗</span>
     </a>
   </section>
@@ -57,6 +68,21 @@
     <p class="hint">The password is used once to open the file, then forgotten. · ใช้รหัสผ่านเพื่อเปิดไฟล์ครั้งเดียว แล้วลืมทันที</p>
   </section>
 
+  <section class="panel" id="photoPanel" hidden>
+    <h2>📷 Statement photos · รูปใบแจ้งยอด</h2>
+    <p class="sub">Put the pages in order with ◀ ▶ (page 1 first). · เรียงหน้าด้วย ◀ ▶ หน้าแรกก่อน</p>
+    <ol class="photolist" id="photoList"></ol>
+    <div class="row">
+      <button type="button" class="btn primary" id="photoGo">Make readable PDF · ทำ PDF ที่อ่านได้</button>
+      <button type="button" class="btn" id="photoClear">Clear · ล้าง</button>
+    </div>
+    <p class="bad" id="photoError" hidden></p>
+    <div class="row" id="photoDone" hidden>
+      <button type="button" class="btn primary" id="photoSend">Check it → Express · ตรวจ → Express</button>
+      <button type="button" class="btn" id="photoDownload">⬇ Readable PDF · ดาวน์โหลด PDF</button>
+    </div>
+  </section>
+
   <p class="progress" id="progress" role="status" aria-live="polite"></p>
 
   <section id="results" hidden>
@@ -71,7 +97,7 @@
     <ul id="bankList"></ul>
     <ul>
       <li>🟡 Other banks: tried with a general reader, not tested yet · ธนาคารอื่น: ลองอ่านได้ แต่ยังไม่ได้ทดสอบ</li>
-      <li>⛔ Photos and scanned PDFs cannot be read here - ask for the bank's own PDF · รูปถ่ายและไฟล์สแกนอ่านไม่ได้</li>
+      <li>📷 Photos and scanned PDFs: use Statement photos → Express - the 7 banks above only, never better than 🟡 · รูปถ่ายและไฟล์สแกน: ใช้ช่อง Statement photos → Express (เฉพาะ 7 ธนาคารข้างบน)</li>
     </ul>
     <p class="hint">🟢 proved and confirmed · 🟡 amounts proved; check dates and descriptions by eye ·
       🔴 a check failed (Review file only) · ⛔ cannot read</p>

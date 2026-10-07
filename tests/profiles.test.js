@@ -30,3 +30,11 @@ test('every profile carries every mark key', () => {
   for (const p of Object.values(PROFILES))
     for (const k of keys) assert.ok(Array.isArray(p.marks[k]), `${p.key}.${k}`);
 });
+
+test('every measured bank carries at least 3 distinct header anchors', () => {
+  for (const p of Object.values(PROFILES)) {
+    assert.ok(Array.isArray(p.anchors) && p.anchors.length >= 3, p.key);
+    assert.equal(new Set(p.anchors.map(a => a.text)).size, p.anchors.length, p.key);
+    for (const a of p.anchors) assert.ok(a.x0 >= 0 && a.x0 < 850 && a.y0 >= 0 && a.y0 < 850, `${p.key} ${a.text}`);
+  }
+});

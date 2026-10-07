@@ -93,3 +93,12 @@ test('an unreadable period stops the linking with a named failure', () => {
   const [g] = groupBatch([a, b]);
   assert.deepEqual(g.checks, [["Every statement's period could be read", false, 'b.pdf']]);
 });
+
+test("a month read from a photo stays yellow even when the next month confirms it", () => {
+  const photo = stmt('scb', '1', '01/07/2026', '31/07/2026', '100.00', '200.00', { anchored: false });
+  photo.fromPhoto = true;
+  const next = stmt('scb', '1', '01/08/2026', '31/08/2026', '200.00', '300.00');
+  const g = groupBatch([photo, next])[0];
+  assert.equal(g.status(photo), 'yellow');
+  assert.equal(g.status(next), 'green');
+});

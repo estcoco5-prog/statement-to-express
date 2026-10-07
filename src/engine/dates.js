@@ -141,7 +141,13 @@ export function parseDate(token, facts) {
   const match = DATE_RE.exec(token);
   if (!match) return [null, null];
   const [, day, month, yearRaw] = match;
-  const [year, warning] = resolveYear(yearRaw, facts.period_from, facts.period_to);
+  // A PDF made from photos whose period could not be read: a 4-digit year
+  // says Western or Buddhist by itself (KKP prints its period in a boxed table
+  // the reader cannot read). A 2-digit year still refuses below.
+  const fourAlone = facts.from_photo && !facts.period_from && !facts.period_to && yearRaw.length === 4;
+  const [year, warning] = fourAlone
+    ? [Number(yearRaw) >= 2500 ? Number(yearRaw) - BE_OFFSET : Number(yearRaw), null]
+    : resolveYear(yearRaw, facts.period_from, facts.period_to);
   if (!(Number(month) >= 1 && Number(month) <= 12 && Number(day) >= 1 && Number(day) <= 31)) {
     return [null, `${token} is not a real date`];
   }

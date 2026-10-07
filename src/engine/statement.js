@@ -24,9 +24,40 @@ export class Statement {
   get bounds() { return periodBounds(this.facts); }
 }
 
+// Co 2026-10-07 (decision B): a statement read from PHOTOS that failed only
+// because some rows could not be proved still gives Express its proved rows -
+// each confirmed by the running balance and carrying no warning. Any other
+// failure (dates going backwards, an anomaly) says the reading itself is in
+// doubt, so nothing goes. A bank's own PDF keeps the old rule: red, no file.
+const COMPLETENESS = [/^Every row agrees with the running balance$/, /^Final balance matches/,
+  /^Total (withdrawals|deposits) matches/, /^Number of (withdrawals|deposits) matches/];
+export function partialRows(statement) {
+  if (!statement.fromPhoto || statusOf(statement) !== 'red') return null;
+  const failed = statement.checks.filter(([, passed]) => !passed).map(([label]) => label);
+  if (!failed.every(label => COMPLETENESS.some(re => re.test(label)))) return null;
+  const proved = statement.rows.filter((r, i) => confirmed(statement, i));
+  return proved.length ? proved : null;
+}
+// A row is only safe for Express when its own amount agrees with the balance
+// AND its printed balance is confirmed by what comes after it: the next row
+// chains on from it, or, for the last row, the closing balance matches. A
+// reader that misreads the same digit in a row's amount and its balance makes
+// that row look proved - only the NEXT row shows the break (G8 review).
+const CLOSING = /^Final balance matches/;
+function confirmed(statement, i) {
+  const rows = statement.rows;
+  const good = r => r.verified && r.ok;
+  if (!good(rows[i])) return false;
+  if (i + 1 < rows.length) return good(rows[i + 1]);
+  return statement.checks.some(([label, passed]) => CLOSING.test(label) && passed);
+}
+// The rows a partial statement leaves out: the ones a person must check.
+export const rowsToCheck = statement => statement.rows.filter((r, i) => !confirmed(statement, i));
+
 // green / yellow / red for a statement on its own (Co's rule A).
 export function statusOf(statement) {
   if (!statement.ok) return 'red';
+  if (statement.fromPhoto) return 'yellow';             // read from a photo: never green (spec 4)
   if (statement.profile.untested) return 'yellow';   // no one has measured this bank: never green
   return statement.anchored ? 'green' : 'yellow';
 }
@@ -53,12 +84,17 @@ export async function readStatement(name, bytes, passwords = [], bank = null, pd
 
   const linesByPage = pages.map(p => groupIntoRows(p));
   const allText = linesByPage.flat().map(rowText).join('\n');
+  // A PDF made from photos names the bank the photo step recognised; its own
+  // mark may have been misread, so that note comes before identify().
+  const noted = (pages.bank && Object.hasOwn(PROFILES, pages.bank) ? PROFILES[pages.bank] : null);
   const profile = bank === 'general' ? generalProfile(pages)
-    : bank ? PROFILES[bank] : identify(allText) ?? generalProfile(pages);
+    : bank ? PROFILES[bank] : noted ?? identify(allText) ?? generalProfile(pages);
   if (!profile) throw new StatementError('this statement does not match any bank profile yet', 'unknown-bank');
-  const facts = parseHeader(linesByPage.flat(), profile);
+  const facts = parseHeader(linesByPage.flat(), profile, { photo: pages.source === 'photo' });
   const { opening, rows } = extractRows(pages, profile, facts);
   const closing = classifyAndVerify(opening, rows, profile);
   const checks = buildChecks(opening, rows, closing, facts);
-  return new Statement(name, profile, facts, opening, rows, closing, checks);
+  const statement = new Statement(name, profile, facts, opening, rows, closing, checks);
+  statement.fromPhoto = pages.source === 'photo';
+  return statement;
 }

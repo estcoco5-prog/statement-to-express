@@ -2,14 +2,16 @@
 // a Review file per statement. Nothing is stored or sent: the files, any
 // password and every result live only in this run and are dropped with it.
 import * as pdfjs from '../vendor/pdfjs/pdf.min.mjs';
-import { readStatement } from './engine/statement.js';
+import { readStatement, partialRows, rowsToCheck } from './engine/statement.js';
 import { StatementError } from './engine/errors.js';
 import { groupBatch } from './engine/batch.js';
 import { expressFiles, reviewFileName } from './engine/output/express.js';
 import { buildWorkbook } from './engine/output/review.js';
 import { writeXlsx } from './engine/output/xlsx.js';
 import { PROFILES } from './engine/profiles.js';
-import { summarise, MESSAGES, STATUS_TEXT, UNTESTED_TEXT } from './view.js';
+import { summarise, MESSAGES, STATUS_TEXT, UNTESTED_TEXT, PHOTO_TEXT, PARTIAL_TEXT } from './view.js';
+import { photoPage, pageSizeFor, imageMatrix } from './photo/pipeline.js';
+import { buildReadablePdf } from './photo/pdfwrite.js';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL('../vendor/pdfjs/pdf.worker.min.mjs', import.meta.url).href;
 
@@ -40,7 +42,7 @@ zone.addEventListener('drop', e => { e.preventDefault(); run([...e.dataTransfer.
 // A file dropped anywhere else must not make the browser open it instead.
 for (const type of ['dragover', 'drop']) window.addEventListener(type, e => e.preventDefault());
 
-$('againBtn').addEventListener('click', () => { clearResults(); window.scrollTo(0, 0); });
+$('againBtn').addEventListener('click', () => { clearResults(); clearPhotos(); window.scrollTo(0, 0); });
 
 // ---- one run -----------------------------------------------------------------
 const isLocked = entry => entry.error && (entry.error.code === 'locked' || entry.error.code === 'wrong-password');
@@ -135,17 +137,20 @@ function show(entries) {
   made = [];
   const reviewBytes = new Map();
   for (const s of statements) {
-    reviewBytes.set(s, writeXlsx(buildWorkbook(s.rows, s.opening, s.closing, s.facts, s.checks, s.profile, s.name)));
+    reviewBytes.set(s, writeXlsx(buildWorkbook(s.rows, s.opening, s.closing, s.facts, s.checks, s.profile, s.name, s.fromPhoto)));
   }
   const results = {
     groups: groups.map((g, i) => ({
       bank: g.profile.bank,
       account: g.account,
       untested: g.profile.untested,
-      statuses: g.statements.map(s => g.status(s)),
+      photo: g.statements.some(s => s.fromPhoto),
+      statuses: g.statements.map(s => (g.isPartial(s) ? 'partial' : g.status(s))),
       statements: g.statements.map(s => ({
-        name: s.name, period: period(s), rows: s.rows.length, status: g.status(s),
+        name: s.name, period: period(s), rows: s.rows.length, status: g.isPartial(s) ? 'partial' : g.status(s),
         leftOut: g.leftOutReason(s), failed: s.checks.filter(([, ok]) => !ok),
+        partial: g.isPartial(s) ? { toExpress: partialRows(s).length, toCheck: rowsToCheck(s).length,
+          pages: [...new Set(rowsToCheck(s).map(r => r.page).filter(Boolean))] } : null,
       })),
       checks: g.checks,
       express: outs[i].fileName ? { fileName: outs[i].fileName, rows: outs[i].n } : { refused: outs[i].refused },
@@ -164,10 +169,22 @@ function show(entries) {
     $('banner').append(el('span', 'th', `⛔ ${v.refusals.length} file(s) could not be used - see below · มีไฟล์ที่ใช้ไม่ได้`));
   }
 
+  const fileOf = new Map(entries.map(e => [e.name, e.file]));
   for (const r of v.refusals) {
-    $('refusals').append(el('div', 'card refusal',
+    const card = el('div', 'card refusal',
       el('h3', '', `⛔ ${r.name}`), el('p', '', r.en), el('p', 'sub', r.th),
-      r.detail ? el('p', 'detail', r.detail) : ''));
+      r.detail ? el('p', 'detail', r.detail) : '');
+    if (r.code === 'no-text' && fileOf.has(r.name)) {
+      // A scan: its pages are pictures, so read them the way photos are read.
+      const b = el('button', 'btn', 'Read it as photos · อ่านเป็นรูปถ่าย');
+      b.type = 'button';
+      b.addEventListener('click', async () => {
+        const { picturesFromPdf } = await import('./photo/ocr.js');
+        addPhotos(await picturesFromPdf(new Uint8Array(await fileOf.get(r.name).arrayBuffer()), pdfjs));
+      });
+      card.append(b);
+    }
+    $('refusals').append(card);
   }
 
   v.accounts.forEach((a, i) => $('accounts').append(accountCard(a, results.groups[i])));
@@ -180,12 +197,14 @@ function accountCard(a, g) {
     el('h3', '', `${a.bank} · ${a.account}`),
     el('p', `status s-${a.status}`, `${t.icon} ${t.en} · ${t.th}`));
   if (a.untested) card.append(el('p', 'caveat', `⚠ ${UNTESTED_TEXT.en} · ${UNTESTED_TEXT.th}`));
+  if (a.photo) card.append(el('p', 'caveat', `📷 ${PHOTO_TEXT.en} · ${PHOTO_TEXT.th}`));
 
   const rows = a.statements.map(s => el('tr', '',
     el('td', '', `${STATUS_TEXT[s.status].icon} ${s.name}`),
     el('td', '', s.period),
     el('td', 'num', s.rows),
     el('td', '', s.leftOut ? `LEFT OUT - ${s.leftOut}`
+      : s.partial ? `🟠 ${PARTIAL_TEXT.en(s.partial)} · ${PARTIAL_TEXT.th(s.partial)}`
       : s.failed.length ? s.failed.map(([label, , detail]) => `${label}: ${detail}`).join('; ') : 'OK')));
   card.append(el('div', 'table-wrap', el('table', '',
     el('thead', '', el('tr', '', el('th', '', 'Statement · ใบแจ้งยอด'), el('th', '', 'Period · ช่วงเวลา'),
@@ -213,21 +232,136 @@ function accountCard(a, g) {
   return card;
 }
 
+function saveBytes(fileName, bytes, type) {
+  const url = URL.createObjectURL(new Blob([bytes], { type }));
+  const a = el('a', '');
+  a.href = url;
+  a.download = fileName;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);   // after the browser has taken it
+}
+
 function downloadButton(fileName, bytes, cls, label) {
   const b = el('button', cls, label);
   b.type = 'button';
-  b.addEventListener('click', () => {
-    const url = URL.createObjectURL(new Blob([bytes], { type: XLSX }));
-    const a = el('a', '');
-    a.href = url;
-    a.download = fileName;
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);   // after the browser has taken it
-  });
+  b.addEventListener('click', () => saveBytes(fileName, bytes, XLSX));
   return b;
 }
+
+// ---- statement photos -> readable PDF (Tool A) --------------------------------
+// The photos, their reading and the PDF live only in memory, in this tab:
+// Clear or Start again drops them. Anything read from a photo is at most 🟡.
+const MAX_PHOTOS = 30;
+let photos = [];                            // [{ file, name, thumb }] in page order
+let photoPdf = null;                        // the readable PDF, once made
+
+$('photoPicker').addEventListener('change', e => { addPhotos([...e.target.files]); e.target.value = ''; });
+$('photoClear').addEventListener('click', clearPhotos);
+
+function addPhotos(files) {
+  for (const file of files) {
+    if (photos.length >= MAX_PHOTOS) break;
+    photos.push({ file, name: file.name, thumb: URL.createObjectURL(file) });
+  }
+  photoPdf = null;
+  drawPhotos();
+}
+
+function clearPhotos() {
+  for (const p of photos) URL.revokeObjectURL(p.thumb);
+  photos = [];
+  photoPdf = null;
+  drawPhotos();
+}
+
+function photoError(text) {
+  $('photoError').hidden = !text;
+  $('photoError').textContent = text || '';
+}
+
+function drawPhotos() {
+  $('photoPanel').hidden = !photos.length;
+  $('photoDone').hidden = !photoPdf;
+  photoError('');
+  $('photoList').replaceChildren(...photos.map((p, i) => {
+    const img = el('img', 'thumb');
+    img.src = p.thumb;
+    img.alt = '';
+    const move = (label, to, aria) => {
+      const b = el('button', 'btn small', label);
+      b.type = 'button';
+      b.setAttribute('aria-label', aria);
+      b.disabled = to < 0 || to >= photos.length;
+      b.addEventListener('click', () => {
+        [photos[i], photos[to]] = [photos[to], photos[i]];
+        photoPdf = null;
+        drawPhotos();
+      });
+      return b;
+    };
+    const drop = el('button', 'btn small', '✕');
+    drop.type = 'button';
+    drop.setAttribute('aria-label', `remove ${p.name}`);
+    drop.addEventListener('click', () => { URL.revokeObjectURL(p.thumb); photos.splice(i, 1); photoPdf = null; drawPhotos(); });
+    return el('li', '', img, el('span', 'name', `${i + 1}. ${p.name}`),
+      move('◀', i - 1, 'move earlier'), move('▶', i + 1, 'move later'), drop);
+  }));
+}
+
+$('photoGo').addEventListener('click', async () => {
+  if (busy || !photos.length) return;
+  busy = true;
+  photoPdf = null;
+  drawPhotos();
+  try {
+    const { readPhoto } = await import('./photo/ocr.js');
+    const pages = [];
+    for (const [i, p] of photos.entries()) {
+      $('progress').textContent = `Reading photo ${i + 1} of ${photos.length}: ${p.name} · กำลังอ่านรูป`;
+      let read;
+      try {
+        read = await readPhoto(p.file, text => { $('progress').textContent = text; });
+      } catch (e) {
+        const m = MESSAGES[e.code] ?? MESSAGES.refused;
+        return photoError(`⛔ ${p.name}: ${m.en} · ${m.th}`);
+      }
+      const page = photoPage(read.ocrWords, read.size);
+      if (!page.ok) {
+        const m = MESSAGES[page.code];
+        return photoError(`⛔ ${p.name}: ${m.en} · ${m.th}`);
+      }
+      const { width, height } = pageSizeFor(page.bank);
+      if (pages.length && pages[0].bank !== page.bank) {
+        const m = MESSAGES['mixed-banks'];
+        return photoError(`⛔ ${p.name}: ${m.en} · ${m.th}`);
+      }
+      pages.push({ jpeg: read.jpeg, width, height, words: page.words, bank: page.bank, summary: !!page.summary,
+        imageMatrix: imageMatrix(page.placement, read.size.w, read.size.h, height) });
+    }
+    const summaryPages = pages.flatMap((pg, i) => pg.summary ? [i] : []);
+    if (summaryPages.length === pages.length) {
+      const m = MESSAGES['summary-only'];
+      return photoError(`⛔ ${m.en} · ${m.th}`);
+    }
+    photoPdf = buildReadablePdf(pages, { bank: pages[0].bank, summaryPages });
+    drawPhotos();
+  } catch (e) {
+    console.error(e);
+    photoError(`⛔ ${MESSAGES.refused.en} · ${MESSAGES.refused.th}`);
+  } finally {
+    $('progress').textContent = '';
+    busy = false;
+  }
+});
+
+$('photoDownload').addEventListener('click', () => {
+  if (photoPdf) saveBytes('statement-photos.pdf', photoPdf, 'application/pdf');
+});
+$('photoSend').addEventListener('click', () => {
+  if (photoPdf) run([new File([photoPdf], 'statement-photos.pdf', { type: 'application/pdf' })]);
+});
 
 // ---- offline + update bar (the Pic-to-PDF pattern) ---------------------------
 if ('serviceWorker' in navigator) {

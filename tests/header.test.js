@@ -65,3 +65,26 @@ test('rows group by line and read left to right', () => {
   const rows = groupIntoRows([word('B', 50, 10), word('A', 10, 11), word('C', 10, 30)]);
   assert.deepEqual(rows.map(rowText), ['A B', 'C']);
 });
+
+// Photo reading splits Thai labels into pieces ("รายก" + "ารระหว่างวันที่",
+// measured on the KTB Corporate page at 200 dpi): a label is found whatever
+// spaces the pieces leave between them.
+test('a label split into pieces by the photo reader is still found', () => {
+  const row = [word('รายก', 15.5, 187.0, 13.5), word('ารระหว่างวันที่', 32.8, 187.0, 43.5),
+    word('04/2026,05/2026,06/2026', 116.5, 187.0, 81.2)];
+  const facts = parseHeader([row], PROFILES.ktbcorp);
+  assert.equal(facts.period_from, '01/04/2026');
+  assert.equal(facts.period_to, '30/06/2026');
+});
+
+// Measured on KBank photos: the reader skipped the small grey label
+// "รอบระหว่างวันที่" but read the range beside it. In a PDF made from photos a
+// single "date - date" range stands in for the label; two ranges, or a bank PDF,
+// do not.
+test('photo: one unlabelled date range is taken as the period', () => {
+  const range = y => [word('01/06/2026', 393.0, y), word('-', 424.6, y), word('30/06/2026', 429.5, y)];
+  assert.deepEqual(['period_from', 'period_to'].map(k => parseHeader([range(97)], KBANK, { photo: true })[k]),
+    ['01/06/2026', '30/06/2026']);
+  assert.equal(parseHeader([range(97)], KBANK).period_from, null);                       // bank PDF: label needed
+  assert.equal(parseHeader([range(97), range(140)], KBANK, { photo: true }).period_from, null);  // two: refuse
+});

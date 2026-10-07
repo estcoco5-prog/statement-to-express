@@ -186,3 +186,20 @@ test('a time on the continuation line fills an empty time', () => {
   appendWrapped(row, { date: [word('08:35', 39.7, 111)] });
   assert.equal(row.time, '08:35');
 });
+
+// Measured on BBL photos (simulated phone photo and small picture): the reader
+// prints "B/F" as "BF". In a PDF made from photos the opening label is found
+// whatever spaces or slashes the reader dropped; a bank's own PDF stays exact.
+test('a photo-read opening label is found without its slash', () => {
+  const profile = { ...KBANK, marks: { ...KBANK.marks, opening: ['B/F'] } };
+  const page = () => [...headerLines(),
+    word('01-06-26', 67.9, 193, 24.2), word('BF', 123.0, 193), rightAligned('31,234.56', 329.0, 193),
+    ...txLine(205, { date: '09-06-26', time: '13:39', desc: 'โอนเงิน', withdraw: '10,000.00',
+      balance: '21,234.56', channel: 'K PLUS', details: 'โอนไป X0000' })];
+  const photo = [page()];
+  Object.defineProperty(photo, 'source', { value: 'photo' });
+  assert.equal(extract(photo, profile).opening, 3123456);
+  const pdf = [page()];
+  Object.defineProperty(pdf, 'source', { value: 'pdf' });
+  assert.throws(() => extract(pdf, profile), /opening balance row/);
+});

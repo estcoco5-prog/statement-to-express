@@ -38,6 +38,11 @@ export const UNTESTED_CAVEAT = 'UNTESTED BANK - this bank has not been tested ye
   'ธนาคารนี้ยังไม่ได้ทดสอบ ยอดเงินตรวจด้วยยอดคงเหลือแล้ว ' +
   'โปรดตรวจวันที่และรายละเอียดด้วยตา';
 
+// A statement read from photos (Tool A): the money is proved by the balance,
+// but nothing proves the dates and descriptions were read right (spec 4).
+export const PHOTO_CAVEAT = 'READ FROM A PHOTO - compare dates and descriptions to the photo by eye / ' +
+  'อ่านจากรูปถ่าย - ตรวจวันที่และรายละเอียดเทียบกับรูปด้วยตา';
+
 // An untested bank's Proof sheet opens with the caveat, in red.
 export function caveatFirst(proof, p) {
   if (p.untested) proof.add(new Cell(UNTESTED_CAVEAT, BAD));

@@ -4,7 +4,7 @@ import { Sheet, Cell, money, HEADER, BOLD, BAD, PLAIN, MONEY, MONEY_BOLD, DATE }
 import { excelSerial } from './express.js';
 import { parseDate } from '../dates.js';
 import { buildDaily } from '../daily.js';
-import { caveatFirst } from '../general.js';
+import { caveatFirst, PHOTO_CAVEAT } from '../general.js';
 
 const basename = name => String(name).split(/[\\/]/).pop();
 // A real Excel date shown DD/MM/YYYY, like the Express template; a date that
@@ -15,26 +15,30 @@ const dateCell = stamp => {
 };
 const moneyOrBlank = v => (v !== null && v !== undefined ? money(v, MONEY) : new Cell('', MONEY));
 
-export function buildWorkbook(rows, opening, closingComputed, facts, checks, profile, source) {
+export function buildWorkbook(rows, opening, closingComputed, facts, checks, profile, source, fromPhoto = false) {
   // Show the period ends in the same ISO form as the rows, so it sorts.
   const iso = stamp => {
     if (!stamp) return '';
     try { return parseDate(stamp, facts)[0] || stamp; } catch { return stamp; }
   };
 
-  const tx = new Sheet('Transactions', { widths: [12, 7, 26, 14, 14, 15, 22, 40, 34], freezeRows: 1 });
+  // From photos, a last column names the photo page of each row: where to check it.
+  const pageCol = fromPhoto ? [new Cell('Photo page', HEADER)] : [];
+  const blank = fromPhoto ? [''] : [];
+  const tx = new Sheet('Transactions', { widths: [12, 7, 26, 14, 14, 15, 22, 40, 34, ...(fromPhoto ? [11] : [])], freezeRows: 1 });
   tx.add(...['Date', 'Time', 'Description', 'Withdrawal', 'Deposit', 'Balance', 'Channel', 'Details', 'Check']
-    .map(h => new Cell(h, HEADER)));
+    .map(h => new Cell(h, HEADER)), ...pageCol);
   tx.add(dateCell(iso(facts.period_from)), '', new Cell('Opening balance', BOLD), '', '',
-    money(opening, MONEY_BOLD), '', '', '');
+    money(opening, MONEY_BOLD), '', '', '', ...blank);
   for (const row of rows) {
     tx.add(dateCell(row.date), row.time, row.description,
       moneyOrBlank(row.withdrawal), moneyOrBlank(row.deposit), moneyOrBlank(row.balance),
       row.channel, row.details,
-      row.ok ? new Cell('OK', PLAIN) : new Cell(row.notes.join('; '), BAD));
+      row.ok ? new Cell('OK', PLAIN) : new Cell(row.notes.join('; '), BAD),
+      ...(fromPhoto ? [new Cell(row.page ?? '', PLAIN)] : []));
   }
   tx.add(dateCell(iso(facts.period_to)), '', new Cell('Closing balance', BOLD), '', '',
-    money(closingComputed, MONEY_BOLD), '', '', '');
+    money(closingComputed, MONEY_BOLD), '', '', '', ...blank);
 
   const days = buildDaily(rows, opening, iso(facts.period_from), iso(facts.period_to));
   const active = days.filter(d => d.count).length;
@@ -57,6 +61,7 @@ export function buildWorkbook(rows, opening, closingComputed, facts, checks, pro
     money(closingComputed, MONEY_BOLD), '');
 
   const proof = new Sheet('Proof', { widths: [46, 10, 52] });
+  if (fromPhoto) proof.add(new Cell(PHOTO_CAVEAT, BAD));
   caveatFirst(proof, profile);
   proof.add(new Cell('How this file was checked', BOLD));
   proof.add('');

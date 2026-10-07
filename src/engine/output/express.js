@@ -8,6 +8,7 @@
 // rule for added columns. AMOUNT stays positive.
 import { Sheet, Cell, money, writeXlsx, HEADER, BOLD, BAD, PLAIN, DATE, MONEY, TODO, EXTRA, EXTRA_MONEY, EXTRA_HEAD } from './xlsx.js';
 import { caveatFirst } from '../general.js';
+import { rowsToCheck } from '../statement.js';
 
 // Copied from the answer key (generated with json.dumps) - rows 1-3 must stay
 // byte-identical to Express's ข้อมูลฝาก-ถอนเงิน template. Do not edit by hand.
@@ -214,7 +215,8 @@ export function buildBatchProof(group, wdTotal, depTotal) {
     const st = group.status(s);
     const reason = group.leftOutReason(s);
     proof.add(basename(s.name),
-      new Cell(reason ? 'LEFT OUT' : st.toUpperCase(), reason || st === 'red' ? BAD : PLAIN),
+      new Cell(reason ? 'LEFT OUT' : group.isPartial(s) ? 'PARTIAL - see Rows to check' : st.toUpperCase(),
+        reason || st === 'red' ? BAD : PLAIN),
       `${s.facts.period_from} to ${s.facts.period_to}` + (reason ? ` - ${reason}` : ''));
   }
   if (group.excluded().length) {
@@ -247,6 +249,29 @@ export const reviewFileName = name => `${basename(name).replace(/\.[^.]*$/, '')}
 
 // One combined Express file per account group. A group with no rows to import
 // (every month failed or was left out) gets a reason instead of a file.
+// Decision B: the rows a partial statement kept OUT of this file, with where to
+// find each one - the photo page - and why it could not be proved.
+export function buildRowsToCheck(group) {
+  const sheet = new Sheet('Rows to check', { widths: [24, 11, 12, 30, 14, 14, 15, 46], freezeRows: 2 });
+  sheet.add(new Cell('These rows are NOT in this file. Check each against the photo, then key it into Express by hand. ' +
+    'Until they are in, the month will not balance. If it still does not balance after that, a row may have been ' +
+    'missed completely - look near the listed photo pages for a line that is not on this sheet.', BAD));
+  sheet.add(...['Statement', 'Photo page', 'Date', 'Description', 'Withdrawal (as read)', 'Deposit (as read)',
+    'Balance (as read)', 'Why it is not in the file'].map(h => new Cell(h, HEADER)));
+  for (const s of group.partials()) {
+    for (const r of rowsToCheck(s)) {
+      const amount = v => (v !== null && v !== undefined ? money(v, MONEY) : new Cell('', MONEY));
+      sheet.add(basename(s.name), new Cell(r.page ?? '', PLAIN), r.date, r.description,
+        amount(r.withdrawal), amount(r.deposit), amount(r.balance),
+        new Cell(r.notes.length ? r.notes.join('; ')
+          : r.verified ? 'its amount agrees with its balance, but the row after it does not confirm that balance - ' +
+            'check both the amount and the balance against the photo'
+          : 'not confirmed by the running balance', BAD));
+    }
+  }
+  return sheet;
+}
+
 export function expressFiles(groups) {
   return groups.map(group => {
     const rows = group.expressRows();
@@ -257,6 +282,7 @@ export function expressFiles(groups) {
     const wd = rows.reduce((a, r) => a + (r.withdrawal ?? 0), 0);
     const dep = rows.reduce((a, r) => a + (r.deposit ?? 0), 0);
     const sheets = [buildBktrn(rows, group.profile.remarkFields), buildReadFirst(), buildBatchProof(group, wd, dep)];
+    if (group.partials().length) sheets.push(buildRowsToCheck(group));
     return { group, fileName: expressFileName(group), sheets, bytes: writeXlsx(sheets),
       n: rows.length, wd, dep };
   });

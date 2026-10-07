@@ -1,5 +1,5 @@
 // Many statements: group by account, order by period, check the joins.
-import { statusOf } from './statement.js';
+import { statusOf, partialRows } from './statement.js';
 import { addDays } from './dates.js';
 import { fmtMoney } from './money.js';
 
@@ -21,15 +21,22 @@ export class Group {
   status(statement) {
     const own = statusOf(statement);
     // The next month's opening confirms it - unless no one has measured this bank.
-    if (own === 'yellow' && this.confirmedByNext.has(statement) && !this.profile.untested) return 'green';
+    // A photo is never lifted: the link proves the money, not what was read.
+    if (own === 'yellow' && this.confirmedByNext.has(statement) && !this.profile.untested
+        && !statement.fromPhoto) return 'green';
     return own;
   }
   leftOutReason(statement) {
-    if (this.status(statement) === 'red') return 'failed its own checks';
+    if (this.status(statement) === 'red' && !partialRows(statement)) return 'failed its own checks';
     return this.leftOut.get(statement) ?? null;
   }
+  // Red but read from photos with only some rows unproved: its proved rows go in.
+  isPartial(statement) { return !this.leftOutReason(statement) && this.status(statement) === 'red'; }
+  partials() { return this.statements.filter(s => this.isPartial(s)); }
   excluded() { return this.statements.filter(s => this.leftOutReason(s)); }
-  expressRows() { return this.statements.filter(s => !this.leftOutReason(s)).flatMap(s => s.rows); }
+  expressRows() {
+    return this.statements.filter(s => !this.leftOutReason(s)).flatMap(s => (this.isPartial(s) ? partialRows(s) : s.rows));
+  }
   get ok() { return this.checks.every(([, passed]) => passed); }
 }
 

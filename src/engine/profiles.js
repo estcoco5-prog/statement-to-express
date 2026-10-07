@@ -22,6 +22,9 @@ export function profile(p) {
 
 const KBANK = profile({
   key: "kbank", bank: "KBank (ธนาคารกสิกรไทย)",
+  // Column headings measured on the real PDF (tools/measure-anchors.mjs): the
+  // photo reader lines a photo up by these.
+  anchors: [{ text: "ถอนเงิน", x0: 213.3, y0: 174.7 }, { text: "ยอดคงเหลือ", x0: 285.9, y0: 169.0 }, { text: "ช่องทาง", x0: 357.6, y0: 174.7 }, { text: "รายละเอียด", x0: 454.9, y0: 174.7 }],
   columns: [
     col("date", 60.0, 95.0),
     col("time", 95.0, 121.0),
@@ -50,6 +53,9 @@ const KBANK = profile({
 
 const SCB = profile({
   key: "scb", bank: "SCB (ธนาคารไทยพาณิชย์)",
+  // Column headings measured on the real PDF (tools/measure-anchors.mjs): the
+  // photo reader lines a photo up by these.
+  anchors: [{ text: "Date", x0: 36.4, y0: 184.0 }, { text: "Channel", x0: 121.6, y0: 184.0 }, { text: "Balance/Baht", x0: 326.6, y0: 184.0 }, { text: "Description", x0: 468.5, y0: 184.0 }],
   columns: [
     col("date", 25.0, 60.0),
     col("time", 60.0, 85.0),
@@ -78,6 +84,9 @@ const SCB = profile({
 
 const KTB = profile({
   key: "ktb", bank: "KTB (ธนาคารกรุงไทย)",
+  // Column headings measured on the real PDF (tools/measure-anchors.mjs): the
+  // photo reader lines a photo up by these.
+  anchors: [{ text: "วันที่/เวลา", x0: 39.7, y0: 233.0 }, { text: "รายการถอน", x0: 341.3, y0: 233.0 }, { text: "รายการฝาก", x0: 404.6, y0: 233.0 }, { text: "ยอดเงินคงเหลือ", x0: 471.1, y0: 233.0 }, { text: "สาขา", x0: 541.9, y0: 233.0 }],
   columns: [
     col("date", 35.0, 80.0),
     col("description", 80.0, 205.0),
@@ -106,6 +115,9 @@ const KTB = profile({
 
 const UOB = profile({
   key: "uob", bank: "UOB (ธนาคารยูโอบี)",
+  // Column headings measured on the real PDF (tools/measure-anchors.mjs): the
+  // photo reader lines a photo up by these.
+  anchors: [{ text: "Description", x0: 149.0, y0: 178.0 }, { text: "Withdrawals", x0: 337.0, y0: 177.0 }, { text: "Deposits", x0: 426.0, y0: 177.0 }, { text: "Balance", x0: 517.0, y0: 177.0 }],
   columns: [
     col("date", 45.0, 100.0),
     col("value_date", 100.0, 147.0),
@@ -118,6 +130,9 @@ const UOB = profile({
   balanceEveryRow: false,
   marks: {
     identify: ["Account Transaction Details"],
+    // Photo sets include the account summary page (Co 2026-10-07): it carries
+    // the period but no transaction table.
+    summary_page: ["Account Overview", "End of Summary"],
     opening: ["BALANCE B/F"],
     closing: [],
     total_withdraw: [],
@@ -134,6 +149,9 @@ const UOB = profile({
 
 const BBL = profile({
   key: "bbl", bank: "BBL (ธนาคารกรุงเทพ)",
+  // Column headings measured on the real PDF (tools/measure-anchors.mjs): the
+  // photo reader lines a photo up by these.
+  anchors: [{ text: "Date", x0: 29.2, y0: 188.4 }, { text: "Particulars", x0: 80.0, y0: 188.4 }, { text: "Withdrawal", x0: 244.2, y0: 188.4 }, { text: "Deposit", x0: 327.4, y0: 188.4 }, { text: "Balance", x0: 396.6, y0: 188.4 }],
   columns: [
     col("date", 20.0, 55.0),
     col("description", 55.0, 160.0),
@@ -160,6 +178,9 @@ const BBL = profile({
 
 const KKP = profile({
   key: "kkp", bank: "KKP (ธนาคารเกียรตินาคินภัทร)",
+  // Column headings measured on the real PDF (tools/measure-anchors.mjs): the
+  // photo reader lines a photo up by these.
+  anchors: [{ text: "Date", x0: 51.3, y0: 253.0 }, { text: "Description", x0: 101.6, y0: 253.0 }, { text: "Debit", x0: 185.9, y0: 253.0 }, { text: "Credit", x0: 252.4, y0: 253.0 }, { text: "Channel", x0: 402.7, y0: 253.0 }],
   columns: [
     col("date", 35.0, 83.0),
     col("description", 83.0, 165.0),
@@ -193,6 +214,9 @@ const KKP = profile({
 // (withholding on interest) has its own column and is not part of the amount.
 const KTB_CORP = profile({
   key: "ktbcorp", bank: "KTB Corporate (กรุงไทย ธุรกิจ)",
+  // Column headings measured on the real PDF (tools/measure-anchors.mjs): the
+  // photo reader lines a photo up by these.
+  anchors: [{ text: "รายละเอียด", x0: 216.7, y0: 239.7 }, { text: "หมายเลขเช็ค", x0: 339.5, y0: 239.7 }, { text: "ภาษี", x0: 625.5, y0: 239.7 }, { text: "ยอดคงเหลือ", x0: 683.9, y0: 239.7 }, { text: "ช่องทาง", x0: 777.0, y0: 239.7 }],
   columns: [
     col("date", 0.0, 52.0),
     col("time", 52.0, 80.0),

@@ -77,3 +77,33 @@ test('the service worker caches every page file', () => {
   for (const f of needed) assert.ok(cached.has(f), `service-worker.js does not cache ${f}`);
   assert.match(sw, /const CACHE = 'statement-to-express-v\d+';/);
 });
+
+test('an account with a statement read from a photo carries the photo warning', async () => {
+  const { PHOTO_TEXT } = await import('../src/view.js');
+  assert.match(PHOTO_TEXT.en, /photo/i);
+  assert.ok(PHOTO_TEXT.th);
+  const v = summarise({ groups: [{ statuses: ['yellow'], photo: true, express: { fileName: 'x.xlsx' } }], refusals: [] });
+  assert.equal(v.accounts[0].photo, true);
+});
+
+test('photo refusals speak plainly, in Thai and English', () => {
+  for (const code of ['too-blurry', 'unknown-layout', 'heic']) {
+    const m = MESSAGES[code];
+    assert.ok(m && m.en && m.th, code);
+  }
+  assert.match(MESSAGES['too-blurry'].en, /closer/);
+  assert.match(MESSAGES.heic.en, /JPEG/);
+});
+
+// Found in the browser test 2026-10-07: a partial photo statement showed
+// "🔴 ... no Express file" right above its Express button. Partial is its own
+// status, between yellow and red.
+test('a partial statement reads as partial, not as "no Express file"', () => {
+  const g = (statuses) => ({ bank: 'BBL', account: '1', statuses, statements: [], checks: [], express: { fileName: 'x.xlsx', rows: 83 }, reviews: [] });
+  const one = summarise({ groups: [g(['partial'])], refusals: [] });
+  assert.equal(one.banner, 'partial');
+  assert.match(STATUS_TEXT.partial.en, /proved rows go to Express/);
+  assert.doesNotMatch(STATUS_TEXT.partial.en, /no Express file/);
+  assert.equal(summarise({ groups: [g(['partial']), g(['red'])], refusals: [] }).banner, 'red');
+  assert.equal(summarise({ groups: [g(['partial']), g(['yellow'])], refusals: [] }).banner, 'partial');
+});

@@ -6,6 +6,7 @@
   --accent:#0E5A61; --accent-soft:#DBEAEA; --accent-ink:#0A464B; --on-accent:#FFFFFF;
   --good:#1E7A3C; --good-soft:#E3F2E7;
   --wait:#8A6100; --wait-soft:#FBF1D5;
+  --part:#A24A00; --part-soft:#FDE8D6;
   --bad:#B42318; --bad-soft:#FBE7E5;
   color-scheme:light dark;
 }
@@ -16,6 +17,7 @@
     --accent:#63C4C8; --accent-soft:#153033; --accent-ink:#8FD9DC; --on-accent:#0B1013;
     --good:#6FCF8E; --good-soft:#15291C;
     --wait:#E8C25A; --wait-soft:#2B2412;
+    --part:#F5A25D; --part-soft:#33200F;
     --bad:#F28B82; --bad-soft:#2E1715;
   }
 }
@@ -36,9 +38,10 @@ p{margin:6px 0}
 .bad{color:var(--bad); font-weight:600}
 .top{margin-bottom:18px}
 
-/* the two tools */
+/* the three tools */
 .tools{display:grid; grid-template-columns:1fr; gap:14px; margin-bottom:18px}
-@media (min-width:720px){ .tools{grid-template-columns:3fr 2fr} }
+@media (min-width:720px){ .tools{grid-template-columns:1fr 1fr} .tools > :last-child{grid-column:1 / -1} }
+@media (min-width:1100px){ .tools{grid-template-columns:5fr 4fr 3fr} .tools > :last-child{grid-column:auto} }
 .tool{
   background:var(--sheet); border:1px solid var(--hair); border-radius:14px; padding:18px;
   color:inherit; text-decoration:none; display:flex; flex-direction:column; gap:4px;
@@ -68,6 +71,7 @@ p{margin:6px 0}
 .banner .th{display:block; font-weight:500; font-size:15px}
 .s-green{background:var(--good-soft); color:var(--good)}
 .s-yellow{background:var(--wait-soft); color:var(--wait)}
+.s-partial{background:var(--part-soft); color:var(--part)}
 .s-red,.s-blocked{background:var(--bad-soft); color:var(--bad)}
 .card{background:var(--sheet); border:1px solid var(--hair); border-radius:14px; padding:18px; margin-bottom:14px}
 .card h3{margin:0; font-size:18px}
@@ -99,3 +103,14 @@ td.num{text-align:right; font-variant-numeric:tabular-nums}
 .updatebar[hidden]{display:none}
 .updatebar button{font:inherit; font-weight:700; border:0; border-radius:8px; padding:5px 12px;
   background:var(--on-accent); color:var(--accent); cursor:pointer}
+
+/* statement photos */
+.row{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.row .btn{margin-top:0}
+.btn.small{margin-top:0; padding:4px 10px}
+.btn:disabled{opacity:.4; cursor:default}
+.photolist{list-style:none; padding:0; margin:10px 0; display:grid; gap:8px}
+.photolist li{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.photolist .thumb{width:56px; height:72px; object-fit:cover; border-radius:6px; border:1px solid var(--hair)}
+.photolist .name{flex:1 1 160px; overflow-wrap:anywhere}
+#photoDone[hidden],#photoError[hidden]{display:none}

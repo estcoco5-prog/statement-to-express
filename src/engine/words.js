@@ -6,6 +6,7 @@
 // width. Measured on a real statement: the boundary lands within 0.1pt of
 // Poppler's. The oracle comparison is what proves it on every real file.
 import { StatementError } from './errors.js';
+import { TOOL_A_PRODUCER, BANK_NOTE } from './source.js';
 
 export class Word {
   constructor(x0, y0, x1, y1, text) {
@@ -231,6 +232,16 @@ export async function readWords(bytes, password, pdfjs) {
       }
       pages.push(words);
     }
+    // Where the text came from: a readable PDF made from photos carries Tool
+    // A's mark, and its result can never be better than yellow.
+    const info = (await doc.getMetadata()).info ?? {};
+    const fromPhoto = info.Producer === TOOL_A_PRODUCER;
+    Object.defineProperty(pages, 'source', { value: fromPhoto ? 'photo' : 'pdf' });
+    const bankNote = fromPhoto ? BANK_NOTE.exec(info.Subject ?? '') : null;
+    Object.defineProperty(pages, 'bank', { value: bankNote ? bankNote[1] : null });
+    // 0-based indexes of summary pages: read for header facts, never for rows.
+    Object.defineProperty(pages, 'summaryPages',
+      { value: new Set(bankNote?.[2] ? bankNote[2].split(',').map(n => Number(n) - 1) : []) });
     if (!pages.some(p => p.length)) {
       throw new StatementError('no text found - this PDF is pictures only', 'no-text');
     }

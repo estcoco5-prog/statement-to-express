@@ -60,3 +60,16 @@ test('a period printed as a list of months', () => {
   assert.deepEqual(periodDates('13/2026'), []);                            // not a month
   assert.deepEqual(periodDates('01/06/2026 - 30/06/2026'), ['01/06/2026', '30/06/2026']);
 });
+
+import { parseDate as parseDateOf } from '../src/engine/dates.js';
+
+// Measured on KKP photos: the period sits in a boxed table the reader cannot
+// read, but every row prints a 4-digit year - it says Western or Buddhist on
+// its own. Only for a PDF made from photos; a 2-digit year still needs the period.
+test('photo: a 4-digit row year needs no period', () => {
+  const none = { period_from: null, period_to: null, from_photo: true };
+  assert.deepEqual(parseDateOf('01/10/2025', none), ['2025-10-01', null]);
+  assert.deepEqual(parseDateOf('01/10/2568', none), ['2025-10-01', null]);
+  assert.throws(() => parseDateOf('01/10/25', none), /period could not be read/);
+  assert.throws(() => parseDateOf('01/10/2025', { period_from: null, period_to: null }), /period could not be read/);
+});

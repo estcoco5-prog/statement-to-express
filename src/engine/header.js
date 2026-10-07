@@ -47,11 +47,15 @@ function afterMark(row, mark) {
   return [];
 }
 
-const has = (text, marks) => (marks ?? []).some(m => text.includes(m));
+// Spaces are ignored: the photo reader can leave a Thai label in pieces
+// ("รายก ารระหว่างวันที่").
+const squash = s => s.replace(/\s+/g, '');
+const has = (text, marks) => (marks ?? []).some(m => squash(text).includes(squash(m)));
 
-export function parseHeader(rows, profile) {
+export function parseHeader(rows, profile, { photo = false } = {}) {
   const marks = profile.marks;
   const facts = {
+    ...(photo ? { from_photo: true } : {}),       // bank PDFs keep exactly the reference's facts
     account_no: null, account_name: null, branch: null,
     period_from: null, period_to: null, closing_stated: null,
     withdraw_total: null, withdraw_count: null,
@@ -117,5 +121,16 @@ export function parseHeader(rows, profile) {
       }
     }
   }
+  // A PDF made from photos: the reader can skip a small grey period label
+  // (KBank) yet read the range beside it. Exactly one "date - date" range on
+  // the whole statement stands in for it; two or more say nothing.
+  if (photo && facts.period_from === null) {
+    const ranges = rows.map(rowText).filter(t => RANGE_RE.test(t));
+    if (ranges.length === 1) {
+      const dates = periodDates(ranges[0]);
+      if (dates.length === 2) [facts.period_from, facts.period_to] = dates;
+    }
+  }
   return facts;
 }
+const RANGE_RE = /\d{1,2}\/\d{1,2}\/\d{4}\s*-\s*\d{1,2}\/\d{1,2}\/\d{4}/;

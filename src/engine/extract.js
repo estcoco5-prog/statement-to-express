@@ -39,12 +39,20 @@ export function checkRowSanity(buckets) {
 }
 
 const has = (text, marks) => (marks ?? []).some(m => text.includes(m));
+// In a PDF made from photos the reader drops spaces and slashes ("B/F" read as
+// "BF" on BBL photos), so the opening label is compared without them there.
+const loose = s => s.replace(/[\s/]+/g, '');
+const hasLoose = (text, marks) => (marks ?? []).some(m => loose(text).includes(loose(m)));
 
 export function extractRows(pages, profile, facts) {
+  const hasOpening = pages.source === 'photo' ? hasLoose : has;
   let opening = null;
   const rows = [];
 
-  for (const words of pages) {
+  for (const [index, words] of pages.entries()) {
+    // A summary page (made from photos, e.g. UOB's account overview) gave the
+    // header its period; its figures are not transactions.
+    if (pages.summaryPages?.has(index)) continue;
     // A wrapped description prints directly beneath its own transaction, so it
     // never crosses a page break: the lines at the top of a new page are that
     // page's header, not a continuation of the last row before it.
@@ -76,7 +84,7 @@ export function extractRows(pages, profile, facts) {
 
       // The opening row: a date and a balance, no amount. It repeats at the top
       // of every page as a carry-forward; only the first one counts.
-      if (has(text, profile.marks.opening) && balances.length) {
+      if (hasOpening(text, profile.marks.opening) && balances.length) {
         if (opening === null) opening = balances[balances.length - 1][1];
         continue;
       }
@@ -98,6 +106,9 @@ export function extractRows(pages, profile, facts) {
       }
 
       const row = new Row();
+      // From photos: the page a row came from, so the Review file can say
+      // where to check it. Bank PDFs keep exactly the reference's rows.
+      if (pages.source === 'photo') row.page = index + 1;
       const [date, warning] = profile.dateStyle === 'd_mon'
         ? parseDMon(dateWords[0].text, facts) : parseDate(dateWords[0].text, facts);
       row.date = date;
