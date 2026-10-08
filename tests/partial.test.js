@@ -51,7 +51,7 @@ test('a row misread consistently in amount AND balance never reaches Express', (
   assert.deepEqual(partialRows(s).map(r => r.date), ['2026-07-05']);
   const text = buildRowsToCheck(groupBatch([s])[0]).rows.flat().map(c => String(c.value)).join(' | ');
   assert.match(text, /2026-07-02|02\/07\/2026/);
-  assert.match(text, /row after it does not confirm/);
+  assert.match(text, /first line: the opening balance it was checked against was read/);
 });
 
 // G8 passbook review probe S2: one repeated misread, a 3 read as 8 in the

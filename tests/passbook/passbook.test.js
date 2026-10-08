@@ -65,15 +65,17 @@ test('a clean passbook: every line but the last goes to Express', () => {
   assert.equal(s.opening, 100000);                         // the brought-forward line
   assert.equal(s.rows.length, 4);
   assert.equal(statusOf(s), 'red');                        // the last line is never confirmed...
-  assert.deepEqual(partialRows(s).map(r => r.balance), [125000, 4950, 1239517]);
-  assert.deepEqual(rowsToCheck(s).map(r => r.line), [2]);  // ...so it is listed to check
+  // line 1 is checked against a brought-forward balance that is only read, the
+  // last line has nothing after it: both listed; the lines between go
+  assert.deepEqual(partialRows(s).map(r => r.balance), [4950, 1239517]);
+  assert.deepEqual(rowsToCheck(s).map(r => `${r.page}:${r.line}`), ['1:2', '2:2']);
   assert.ok(s.checks.some(([label, ok]) => label === LAST_LINE && !ok));
   assert.equal(s.rows[1].withdrawal, 120050);
   assert.equal(s.facts.period_from, '03/01/2025');
   const [group] = groupBatch([s]);
   assert.ok(group.isPartial(s));
   const [out] = expressFiles([group]);
-  assert.equal(out.n, 3);
+  assert.equal(out.n, 2);
   assert.ok(out.sheets.some(sh => sh.name === 'Rows to check'));
 });
 
@@ -147,4 +149,11 @@ test('probe S3: a date read too late is listed, not only the right lines after i
     line(1, 5, '15/01/68', '+10.00', '*1,070.00')], KTB_PASSBOOK);
   assert.ok(rowsToCheck(s).some(r => r.line === 2), 'the line read 18/01 is listed');
   assert.ok(!(partialRows(s) ?? []).some(r => r.date === '2025-01-18'));
+});
+
+test('probe R1: a misread brought-forward balance and a matching misread in line 1 do not cancel out', () => {
+  // truth: BF 12,345.00; -2,300.00 -> 10,045.00 - a 3 read as 8 in both
+  const s = passbookStatement('x', [line(1, 1, '03/01/68', null, '*12,845.00'), line(1, 2, '03/01/68', '-2,800.00', '*10,045.00'),
+    line(1, 3, '04/01/68', '+5.00', '*10,050.00'), line(1, 4, '05/01/68', '+1.00', '*10,051.00')], KTB_PASSBOOK);
+  assert.ok(!(partialRows(s) ?? []).some(r => r.line === 2), 'the 2,800.00 is held back');
 });

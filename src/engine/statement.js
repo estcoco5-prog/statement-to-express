@@ -58,7 +58,10 @@ function confirmed(statement, i) {
   // verified, or - for line 1 - an opening that was printed and read, not one
   // worked back from these very lines. Otherwise one repeated misread (a 3 read
   // as 8 in the balance above AND in this amount) cancels out (G8 passbook review).
-  const before = i === 0 ? !statement.facts.opening_derived : rows[i - 1].verified;
+  // Line 1 never qualifies: the opening it was checked against was only READ
+  // (printed or worked back), never proved - a matching misread in it and in
+  // line 1's amount would cancel out (G8 passbook re-review R1).
+  const before = i > 0 && rows[i - 1].verified;
   if (!before) return false;
   // The next line confirms this balance by chaining on from it; for a passbook
   // that is all it needs to do (its own date or sign doubt is its own).
