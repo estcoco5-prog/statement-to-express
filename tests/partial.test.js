@@ -88,3 +88,16 @@ test('a bank PDF that failed keeps the old rule: no Express file', () => {
   assert.equal(partialRows(s), null);
   assert.ok(expressFiles(groupBatch([s]))[0].refused);
 });
+
+// G8 re-review: a tax row is proved only together with its interest row.
+test('a tax row never goes to Express without its interest row', () => {
+  const interest = row('2026-07-02', '39.68', '1039.68'); interest.withdrawal = null; interest.deposit = 3968;
+  const tax = row('2026-07-02', '0.40', '1039.28'); tax.isTax = true;
+  const next = row('2026-07-03', '9.28', '1030.00');
+  const last = row('2026-07-04', '30.00', '1000.00');
+  const s = stmt('ktbcorp', '1112223334', '01/07/2026', '31/07/2026', '1000.00', '1000.00', { rows: [interest, tax, next, last] });
+  s.checks = [[CHAIN, false, ''], ['Final balance matches the closing balance the bank printed', true, '']];
+  s.fromPhoto = true;
+  const sent = partialRows(s).map(r => r.date);
+  assert.ok(!sent.includes('2026-07-02'), 'line 1 is held, and its tax row with it');
+});

@@ -54,6 +54,9 @@ function confirmed(statement, i) {
   const rows = statement.rows;
   const good = r => r.verified && r.ok;
   if (!good(rows[i])) return false;
+  // A tax row split from its interest row (verify.js splitTax) is proved only
+  // as a pair with it: it goes exactly when its interest row goes.
+  if (rows[i].isTax) return i > 0 && confirmed(statement, i - 1);
   // ...and the balance it was checked AGAINST must be proved too: the line above
   // verified, or - for line 1 - an opening that was printed and read, not one
   // worked back from these very lines. Otherwise one repeated misread (a 3 read
