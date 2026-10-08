@@ -371,6 +371,7 @@ let passbookPages = [];                     // [{ file, name, thumb }] in page o
 $('passbookPicker').addEventListener('change', async e => {
   const files = [...e.target.files];
   e.target.value = '';
+  if (busy) return;
   await addPassbookFiles(files);
 });
 $('passbookClear').addEventListener('click', clearPassbook);
@@ -403,6 +404,8 @@ async function addPassbookFiles(files) {
 }
 
 function clearPassbook() {
+  if (busy) return;
+  clearResults();
   for (const p of passbookPages) URL.revokeObjectURL(p.thumb);
   passbookPages = [];
   $('passbookAccount').value = '';
@@ -435,6 +438,9 @@ function drawPassbook() {
 $('passbookGo').addEventListener('click', async () => {
   if (busy || !passbookPages.length) return;
   busy = true;
+  // nothing in the panel can change the pages while they are being read
+  $('passbookPanel').inert = true;
+  $('passbookPicker').disabled = true;
   passbookError('');
   clearResults();
   try {
@@ -449,7 +455,7 @@ $('passbookGo').addEventListener('click', async () => {
       try {
         canvas = await decodeUpright(p.file);
       } catch {
-        return passbookError(`⛔ ${p.name}: ${MESSAGES['not-pdf'].en} · ${MESSAGES['not-pdf'].th}`);
+        return passbookError(`⛔ ${p.name}: ${MESSAGES['not-image'].en} · ${MESSAGES['not-image'].th}`);
       }
       const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
       pictures.push(greyFromRGBA(data, canvas.width, canvas.height));
@@ -471,6 +477,8 @@ $('passbookGo').addEventListener('click', async () => {
     passbookError(`⛔ ${MESSAGES.refused.en} · ${MESSAGES.refused.th}`);
   } finally {
     $('progress').textContent = '';
+    $('passbookPanel').inert = false;
+    $('passbookPicker').disabled = false;
     busy = false;
   }
 });

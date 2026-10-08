@@ -81,7 +81,7 @@ test('a misread copied into one line\'s amount AND balance never reaches Express
   const lines = good();
   lines[1] = line(1, 2, '03/01/68', '+850.00', '*1,850.00');   // 2 read as 8 in both
   const s = passbookStatement('Passbook.pdf', lines, KTB_PASSBOOK);
-  const sent = partialRows(s).map(r => `${r.page}:${r.line}`);
+  const sent = (partialRows(s) ?? []).map(r => `${r.page}:${r.line}`);
   assert.ok(!sent.includes('1:2'), 'the misread line is held back by the line after it');
   assert.ok(!sent.includes('1:3'), 'the line after it does not chain');
 });
@@ -110,8 +110,8 @@ test('a doubtful date, a sign that disagrees, an unread amount: each line listed
   assert.match(why['2:1'], /printed as a withdrawal but the balance says deposit/);
   assert.match(why['2:3'], /unsure of the date/);
   assert.match(why['2:4'], /amount on this line could not be read/);
-  assert.ok(partialRows(s).some(r => r.page === 1 && r.line === 2));
-  assert.ok(partialRows(s).some(r => r.page === 2 && r.line === 2));
+  assert.match(why['1:2'], /may be read too late/);          // the line above a backwards date is listed too
+  assert.deepEqual(partialRows(s).map(r => `${r.page}:${r.line}`), ['2:2']);
 });
 
 test('no brought-forward line: the first line is worked back and listed to check', () => {
@@ -119,4 +119,32 @@ test('no brought-forward line: the first line is worked back and listed to check
   assert.equal(s.opening, 100000);
   assert.ok(s.facts.opening_derived);
   assert.match(rowsToCheck(s)[0].notes.join(' '), /nothing before it/);
+});
+
+// G8 passbook review probes (truth in each comment). None of these may put a
+// wrong figure in Express.
+test('probe S1: an unreadable brought-forward line does not let line 2 prove itself', () => {
+  // truth: BF 1,000.00; +250.00 -> 1,250.00; -200.00 -> 1,050.00; +10.00 -> 1,060.00
+  const s = passbookStatement('x', [line(1, 1, '03/01/68', null, null), line(1, 2, '03/01/68', '+850.00', '*1,250.00'),
+    line(1, 3, '04/01/68', '-200.00', '*1,050.00'), line(1, 4, '05/01/68', '+10.00', '*1,060.00')], KTB_PASSBOOK);
+  assert.ok(!(partialRows(s) ?? []).some(r => r.line === 2), 'the misread 850.00 is held back');
+});
+
+test('probe S2: a misread in the balance above and in this amount does not cancel out', () => {
+  // truth: BF 12,000.00; +345.00 -> 12,345.00; -2,300.00 -> 10,045.00; +5.00; +1.00
+  const s = passbookStatement('x', [line(1, 1, '03/01/68', null, '*12,000.00'), line(1, 2, '03/01/68', '+345.00', '*12,845.00'),
+    line(1, 3, '04/01/68', '-2,800.00', '*10,045.00'), line(1, 4, '05/01/68', '+5.00', '*10,050.00'),
+    line(1, 5, '05/01/68', '+1.00', '*10,051.00')], KTB_PASSBOOK);
+  const sent = (partialRows(s) ?? []).map(r => r.line);
+  assert.ok(!sent.includes(2) && !sent.includes(3), 'neither the misread balance nor the 2,800.00 goes');
+  assert.deepEqual(sent, [4]);
+});
+
+test('probe S3: a date read too late is listed, not only the right lines after it', () => {
+  // truth: 13/01 read as 18/01 on line 2
+  const s = passbookStatement('x', [line(1, 1, '03/01/68', null, '*1,000.00'), line(1, 2, '18/01/68', '+250.00', '*1,250.00'),
+    line(1, 3, '14/01/68', '-200.00', '*1,050.00'), line(1, 4, '15/01/68', '+10.00', '*1,060.00'),
+    line(1, 5, '15/01/68', '+10.00', '*1,070.00')], KTB_PASSBOOK);
+  assert.ok(rowsToCheck(s).some(r => r.line === 2), 'the line read 18/01 is listed');
+  assert.ok(!(partialRows(s) ?? []).some(r => r.date === '2025-01-18'));
 });

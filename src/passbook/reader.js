@@ -350,8 +350,8 @@ export const cents = text => {
 };
 const signed = text => (text[0] === '-' ? -1 : 1) * cents(text);
 
-// Rows whose amount and balance the chain proves (and the next row confirms)
-// teach the reader: their boxes are certainly those symbols. Used only to
+// Rows whose amount and balance the chain proves (the rows above and below
+// chaining too) teach the reader: their boxes are certainly those symbols. Used only to
 // learn - the engine proves everything again on its own.
 function provedLines(lines) {
   let prev = null;
@@ -362,7 +362,9 @@ function provedLines(lines) {
     if (b !== null) prev = b;
     return ok;
   });
-  return lines.filter((l, i) => chained[i] && (i + 1 === lines.length || chained[i + 1]));
+  // proved on both sides: the line above (whose balance this one builds on)
+  // and the line below (which confirms this balance) chain too
+  return lines.filter((l, i) => chained[i] && (i === 0 || chained[i - 1]) && (i + 1 === lines.length || chained[i + 1]));
 }
 
 const tick = () => new Promise(r => setTimeout(r, 0));
@@ -406,16 +408,6 @@ export async function readPassbook(pictures, printer, onProgress = () => {}) {
       });
     }
   }
-  // Dates are never proved by money, but a date read with confidence on three
-  // lines in a row is a safe teacher for the date column's own print (it can
-  // be fainter than the money). Dates stay "check by eye" whatever is learned.
-  const sureDate = l => l.date && l.date.read.every(c => c.margin >= 0.05);
-  lines.forEach((l, i) => {
-    const a = lines[i - 1], b = lines[i + 1];
-    if (!a || !b || !sureDate(l) || !sureDate(a) || !sureDate(b)) return;
-    if (a.date.text !== l.date.text || b.date.text !== l.date.text) return;
-    l.date.boxes.forEach((box, k) => candidates.push({ ch: l.date.text[k], box, known: box.fits?.[l.date.text[k]] ?? -1 }));
-  });
   candidates.sort((x, y) => x.known - y.known);
   for (const { ch, box, known } of candidates) {
     if (known >= 0.9 || (per[ch] ?? 0) >= printer.maxPatterns) continue;

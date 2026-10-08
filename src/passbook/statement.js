@@ -61,15 +61,13 @@ export function passbookStatement(name, lines, printer, { account = null } = {})
   });
 
   if (opening === null) {
-    // No brought-forward line: work the opening back from line 1, which then
-    // has nothing before it to be checked against.
-    const first = rows.find(r => r.amount !== null && r.balance !== null);
-    if (first) {
-      opening = first.balance - (first.printedSign === '-' ? -first.amount : first.amount);
-      openingDerived = true;
-    } else {
-      opening = 0;
-    }
+    // No brought-forward line read: work the opening back from line 1 ONLY -
+    // which then has nothing before it to be checked against. Worked back from
+    // a later line, that line's amount would "prove" itself (G8 review).
+    const first = rows[0];
+    opening = first && first.amount !== null && first.balance !== null
+      ? first.balance - (first.printedSign === '-' ? -first.amount : first.amount) : 0;
+    openingDerived = true;
   }
 
   const closing = classifyAndVerify(opening, rows, profile);
@@ -88,12 +86,21 @@ export function passbookStatement(name, lines, printer, { account = null } = {})
 
   // Dates are not proved by money: one that is not a real date, or goes back
   // before the line above it, is listed to check.
-  let last = null;
+  // A date that goes backwards: this line, or the one above read too late -
+  // both are listed (G8 review: a late misread must not slip through).
+  let last = null, lastRow = null;
   for (const r of rows) {
     if (r.date && r.dateMargin !== null && r.dateMargin < DATE_SURE) { r.notes.push(`the reader was unsure of the date (reads ${dmy(r.date)}) - check the date`); continue; }
     if (!r.date) { r.notes.push('the date could not be read - check it against the passbook'); continue; }
-    if (last && r.date < last) { r.notes.push(`the date reads ${dmy(r.date)}, earlier than the line above - check the date`); continue; }
+    if (last && r.date < last) {
+      r.notes.push(`the date reads ${dmy(r.date)}, earlier than the line above - check the date`);
+      if (lastRow && !lastRow.notes.some(n => n.includes('a later line reads earlier'))) {
+        lastRow.notes.push(`its date (${dmy(lastRow.date)}) may be read too late: a later line reads earlier - check the date`);
+      }
+      continue;
+    }
     last = r.date;
+    lastRow = r;
   }
 
   const dates = rows.filter(r => r.date && r.ok).map(r => r.date).sort();

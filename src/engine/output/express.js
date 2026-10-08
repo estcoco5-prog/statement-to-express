@@ -267,10 +267,14 @@ export function buildRowsToCheck(group) {
       if (withdrawal === null && deposit === null && r.amount !== null && r.printedSign) {
         if (r.printedSign === '-') withdrawal = r.amount; else deposit = r.amount;
       }
-      const last = r === s.rows[s.rows.length - 1];
+      const at = s.rows.indexOf(r);
+      const last = at === s.rows.length - 1 && !s.checks.some(([label]) => /^Final balance matches/.test(label));
+      const aboveUnproved = at === 0 ? s.facts.opening_derived : !s.rows[at - 1].verified;
       sheet.add(basename(s.name), new Cell(r.page ?? '', PLAIN), r.date, r.description,
         amount(withdrawal), amount(deposit), amount(r.balance),
         new Cell(r.notes.length ? r.notes.join('; ')
+          : r.verified && aboveUnproved ? 'the line above could not be proved, so the balance this amount was checked ' +
+            'against is not proved either - check the amount against the photo'
           : r.verified && last ? 'the last line: nothing after it confirms its balance - check the amount and the ' +
             'balance against the photo'
           : r.verified ? 'its amount agrees with its balance, but the row after it does not confirm that balance - ' +
