@@ -261,9 +261,18 @@ export function buildRowsToCheck(group) {
   for (const s of group.partials()) {
     for (const r of rowsToCheck(s)) {
       const amount = v => (v !== null && v !== undefined ? money(v, MONEY) : new Cell('', MONEY));
+      // Not proved, so the balance never said which way it went - a passbook's
+      // printed + or - does, as read.
+      let { withdrawal, deposit } = r;
+      if (withdrawal === null && deposit === null && r.amount !== null && r.printedSign) {
+        if (r.printedSign === '-') withdrawal = r.amount; else deposit = r.amount;
+      }
+      const last = r === s.rows[s.rows.length - 1];
       sheet.add(basename(s.name), new Cell(r.page ?? '', PLAIN), r.date, r.description,
-        amount(r.withdrawal), amount(r.deposit), amount(r.balance),
+        amount(withdrawal), amount(deposit), amount(r.balance),
         new Cell(r.notes.length ? r.notes.join('; ')
+          : r.verified && last ? 'the last line: nothing after it confirms its balance - check the amount and the ' +
+            'balance against the photo'
           : r.verified ? 'its amount agrees with its balance, but the row after it does not confirm that balance - ' +
             'check both the amount and the balance against the photo'
           : 'not confirmed by the running balance', BAD));

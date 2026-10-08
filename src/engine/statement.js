@@ -31,10 +31,16 @@ export class Statement {
 // doubt, so nothing goes. A bank's own PDF keeps the old rule: red, no file.
 const COMPLETENESS = [/^Every row agrees with the running balance$/, /^Final balance matches/,
   /^Total (withdrawals|deposits) matches/, /^Number of (withdrawals|deposits) matches/];
+// A passbook (src/passbook) lists every doubtful line on its own - a date that
+// goes backwards, a sign that disagrees, the last line - so those checks
+// failing still leave its other proved lines safe.
+const PASSBOOK_ALSO = [/^Dates never go backwards$/, /^No other anomalies on any row$/,
+  /^Last line confirmed by a later line$/, /^Each page carries on from the one before$/];
 export function partialRows(statement) {
   if (!statement.fromPhoto || statusOf(statement) !== 'red') return null;
   const failed = statement.checks.filter(([, passed]) => !passed).map(([label]) => label);
-  if (!failed.every(label => COMPLETENESS.some(re => re.test(label)))) return null;
+  const allowed = statement.passbook ? [...COMPLETENESS, ...PASSBOOK_ALSO] : COMPLETENESS;
+  if (!failed.every(label => allowed.some(re => re.test(label)))) return null;
   const proved = statement.rows.filter((r, i) => confirmed(statement, i));
   return proved.length ? proved : null;
 }
@@ -48,7 +54,9 @@ function confirmed(statement, i) {
   const rows = statement.rows;
   const good = r => r.verified && r.ok;
   if (!good(rows[i])) return false;
-  if (i + 1 < rows.length) return good(rows[i + 1]);
+  // The next line confirms this balance by chaining on from it; for a passbook
+  // that is all it needs to do (its own date or sign doubt is its own).
+  if (i + 1 < rows.length) return statement.passbook ? rows[i + 1].verified : good(rows[i + 1]);
   return statement.checks.some(([label, passed]) => CLOSING.test(label) && passed);
 }
 // The rows a partial statement leaves out: the ones a person must check.

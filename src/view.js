@@ -55,6 +55,10 @@ export const MESSAGES = {
     th: 'กรุณาส่งรูปเป็น JPEG (LINE ส่งเป็น JPEG อยู่แล้ว)',
     en: 'Please use JPEG photos (LINE already sends JPEG). iPhone HEIC photos cannot be opened here.',
   },
+  'not-passbook': {
+    th: 'ไม่พบบรรทัดรายการของสมุดบัญชีกรุงไทยในไฟล์นี้ สแกนหน้าที่พิมพ์รายการ ให้เรียบและเต็มหน้า',
+    en: 'No Krungthai passbook lines were found. Scan the printed pages, flat and whole.',
+  },
   'refused': {
     th: 'อ่านใบแจ้งยอดนี้อย่างปลอดภัยไม่ได้ จึงไม่ได้สร้างไฟล์',
     en: 'This statement could not be read safely, so no file was made from it.',

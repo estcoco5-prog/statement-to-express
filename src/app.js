@@ -42,7 +42,7 @@ zone.addEventListener('drop', e => { e.preventDefault(); run([...e.dataTransfer.
 // A file dropped anywhere else must not make the browser open it instead.
 for (const type of ['dragover', 'drop']) window.addEventListener(type, e => e.preventDefault());
 
-$('againBtn').addEventListener('click', () => { clearResults(); clearPhotos(); window.scrollTo(0, 0); });
+$('againBtn').addEventListener('click', () => { clearResults(); clearPhotos(); clearPassbook(); window.scrollTo(0, 0); });
 
 // ---- one run -----------------------------------------------------------------
 const isLocked = entry => entry.error && (entry.error.code === 'locked' || entry.error.code === 'wrong-password');
@@ -361,6 +361,118 @@ $('photoDownload').addEventListener('click', () => {
 });
 $('photoSend').addEventListener('click', () => {
   if (photoPdf) run([new File([photoPdf], 'statement-photos.pdf', { type: 'application/pdf' })]);
+});
+
+// ---- passbook -> Express -------------------------------------------------------
+// Scans of a passbook's printed pages, read here by the dot-pattern reader (no
+// download, nothing sent). Everything lives in this tab only; Clear drops it.
+let passbookPages = [];                     // [{ file, name, thumb }] in page order
+
+$('passbookPicker').addEventListener('change', async e => {
+  const files = [...e.target.files];
+  e.target.value = '';
+  await addPassbookFiles(files);
+});
+$('passbookClear').addEventListener('click', clearPassbook);
+
+function passbookError(text) {
+  $('passbookError').hidden = !text;
+  $('passbookError').textContent = text || '';
+}
+
+async function addPassbookFiles(files) {
+  passbookError('');
+  for (const file of files) {
+    if (passbookPages.length >= MAX_PHOTOS) break;
+    if (/pdf/i.test(file.type) || /\.pdf$/i.test(file.name)) {
+      try {
+        const { picturesFromPdf } = await import('./photo/ocr.js');
+        $('progress').textContent = `Opening ${file.name} · กำลังเปิดไฟล์`;
+        const pages = await picturesFromPdf(new Uint8Array(await file.arrayBuffer()), pdfjs);
+        pages.forEach((f, i) => passbookPages.push({ file: f, name: `${file.name} - page ${i + 1}`, thumb: URL.createObjectURL(f) }));
+      } catch {
+        passbookError(`⛔ ${file.name}: ${MESSAGES['not-pdf'].en} · ${MESSAGES['not-pdf'].th}`);
+      } finally {
+        $('progress').textContent = '';
+      }
+    } else {
+      passbookPages.push({ file, name: file.name, thumb: URL.createObjectURL(file) });
+    }
+  }
+  drawPassbook();
+}
+
+function clearPassbook() {
+  for (const p of passbookPages) URL.revokeObjectURL(p.thumb);
+  passbookPages = [];
+  $('passbookAccount').value = '';
+  drawPassbook();
+}
+
+function drawPassbook() {
+  $('passbookPanel').hidden = !passbookPages.length;
+  $('passbookList').replaceChildren(...passbookPages.map((p, i) => {
+    const img = el('img', 'thumb');
+    img.src = p.thumb;
+    img.alt = '';
+    const move = (label, to, aria) => {
+      const b = el('button', 'btn small', label);
+      b.type = 'button';
+      b.setAttribute('aria-label', aria);
+      b.disabled = to < 0 || to >= passbookPages.length;
+      b.addEventListener('click', () => { [passbookPages[i], passbookPages[to]] = [passbookPages[to], passbookPages[i]]; drawPassbook(); });
+      return b;
+    };
+    const drop = el('button', 'btn small', '✕');
+    drop.type = 'button';
+    drop.setAttribute('aria-label', `remove ${p.name}`);
+    drop.addEventListener('click', () => { URL.revokeObjectURL(p.thumb); passbookPages.splice(i, 1); drawPassbook(); });
+    return el('li', '', img, el('span', 'name', `${i + 1}. ${p.name}`),
+      move('◀', i - 1, 'move earlier'), move('▶', i + 1, 'move later'), drop);
+  }));
+}
+
+$('passbookGo').addEventListener('click', async () => {
+  if (busy || !passbookPages.length) return;
+  busy = true;
+  passbookError('');
+  clearResults();
+  try {
+    const { decodeUpright } = await import('./photo/ocr.js');
+    const { readPassbook, greyFromRGBA } = await import('./passbook/reader.js');
+    const { KTB_PASSBOOK } = await import('./passbook/printers/ktb.js');
+    const { passbookStatement } = await import('./passbook/statement.js');
+    const pictures = [];
+    for (const [i, p] of passbookPages.entries()) {
+      $('progress').textContent = `Opening page ${i + 1} of ${passbookPages.length} · กำลังเปิดหน้า`;
+      let canvas;
+      try {
+        canvas = await decodeUpright(p.file);
+      } catch {
+        return passbookError(`⛔ ${p.name}: ${MESSAGES['not-pdf'].en} · ${MESSAGES['not-pdf'].th}`);
+      }
+      const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+      pictures.push(greyFromRGBA(data, canvas.width, canvas.height));
+    }
+    const lines = await readPassbook(pictures, KTB_PASSBOOK, ({ step, page, pages }) => {
+      $('progress').textContent = `${step === 'reread' ? 'Reading again with what it learned' : 'Reading'} page ${page} of ${pages} · กำลังอ่านหน้า ${page}/${pages}`;
+    });
+    pictures.length = 0;
+    if (!lines.some(l => l.balance)) {
+      const m = MESSAGES['not-passbook'];
+      return passbookError(`⛔ ${m.en} · ${m.th}`);
+    }
+    const statement = passbookStatement('Passbook.pdf', lines, KTB_PASSBOOK,
+      { account: $('passbookAccount').value.replace(/\D/g, '') || null });
+    show([{ name: 'Passbook.pdf', file: null, statement, error: null }]);
+    $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    console.error(e);
+    passbookError(`⛔ ${MESSAGES.refused.en} · ${MESSAGES.refused.th}`);
+  } finally {
+    $('progress').textContent = '';
+    busy = false;
+  }
 });
 
 // ---- offline + update bar (the Pic-to-PDF pattern) ---------------------------

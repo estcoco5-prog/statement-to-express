@@ -51,7 +51,7 @@ const toBytes = async blob => new Uint8Array(await blob.arrayBuffer());
 // Decode without the browser applying EXIF, then apply it once. If the browser
 // rotated anyway, the decoded shape comes back already swapped: stand down
 // (the same guard as Pic-to-PDF, proven on Co's iPhone).
-async function decodeUpright(file) {
+export async function decodeUpright(file) {
   const raw = new Uint8Array(await file.arrayBuffer());
   const orientation = readExifOrientation(raw);
   let bitmap;

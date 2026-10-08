@@ -46,6 +46,18 @@
         วางราบ สว่าง เห็นทั้งหน้า ห้ามถ่ายจากหน้าจอ</p>
     </div>
 
+    <div class="tool" id="passbookTool">
+      <h2>Passbook → Express</h2>
+      <p class="sub">สมุดบัญชี → Express</p>
+      <p>Scans of a Krungthai PASSBOOK's printed pages. Read on this computer, nothing sent anywhere. Every
+        line is proved by the balance; the doubtful ones are listed to check by hand. · สแกนหน้าสมุดบัญชีกรุงไทย
+        อ่านในเครื่องนี้ ไม่ส่งออกไปไหน</p>
+      <label class="btn primary" for="passbookPicker">Choose scans · เลือกไฟล์สแกน</label>
+      <input type="file" id="passbookPicker" accept="application/pdf,.pdf,image/jpeg,image/png,.jpg,.jpeg,.png" multiple hidden>
+      <p class="hint">Krungthai passbooks only, for now. A flat scan (PDF or JPG) works best. ·
+        ตอนนี้เฉพาะสมุดบัญชีกรุงไทย สแกนให้เรียบ</p>
+    </div>
+
     <a class="tool link" href="https://estcoco5-prog.github.io/Pic-to-PDF/" rel="noopener">
       <h2>Photos → PDF</h2>
       <p class="sub">รูปถ่าย → PDF</p>
@@ -83,6 +95,20 @@
     </div>
   </section>
 
+  <section class="panel" id="passbookPanel" hidden>
+    <h2>📒 Passbook pages · หน้าสมุดบัญชี</h2>
+    <p class="sub">Put the pages in order with ◀ ▶ (the first page first). · เรียงหน้าด้วย ◀ ▶ หน้าแรกก่อน</p>
+    <ol class="photolist" id="passbookList"></ol>
+    <label class="field" for="passbookAccount">Account number from the passbook cover (optional) ·
+      เลขที่บัญชีจากหน้าปกสมุด (ไม่บังคับ)</label>
+    <input type="text" class="field-input" id="passbookAccount" inputmode="numeric" autocomplete="off" spellcheck="false">
+    <div class="row">
+      <button type="button" class="btn primary" id="passbookGo">Read and check → Express · อ่านและตรวจ → Express</button>
+      <button type="button" class="btn" id="passbookClear">Clear · ล้าง</button>
+    </div>
+    <p class="bad" id="passbookError" hidden></p>
+  </section>
+
   <p class="progress" id="progress" role="status" aria-live="polite"></p>
 
   <section id="results" hidden>
@@ -98,6 +124,7 @@
     <ul>
       <li>🟡 Other banks: tried with a general reader, not tested yet · ธนาคารอื่น: ลองอ่านได้ แต่ยังไม่ได้ทดสอบ</li>
       <li>📷 Photos and scanned PDFs: use Statement photos → Express - the 7 banks above only, never better than 🟡 · รูปถ่ายและไฟล์สแกน: ใช้ช่อง Statement photos → Express (เฉพาะ 7 ธนาคารข้างบน)</li>
+      <li>📒 Passbooks: use Passbook → Express - Krungthai passbooks only, never better than 🟠 (the last line is always checked by hand) · สมุดบัญชี: ใช้ช่อง Passbook → Express (เฉพาะกรุงไทย)</li>
     </ul>
     <p class="hint">🟢 proved and confirmed · 🟡 amounts proved; check dates and descriptions by eye ·
       🔴 a check failed (Review file only) · ⛔ cannot read</p>

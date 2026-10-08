@@ -40,8 +40,8 @@ p{margin:6px 0}
 
 /* the three tools */
 .tools{display:grid; grid-template-columns:1fr; gap:14px; margin-bottom:18px}
-@media (min-width:720px){ .tools{grid-template-columns:1fr 1fr} .tools > :last-child{grid-column:1 / -1} }
-@media (min-width:1100px){ .tools{grid-template-columns:5fr 4fr 3fr} .tools > :last-child{grid-column:auto} }
+@media (min-width:720px){ .tools{grid-template-columns:1fr 1fr} }
+@media (min-width:1300px){ .tools{grid-template-columns:repeat(4, 1fr)} }
 .tool{
   background:var(--sheet); border:1px solid var(--hair); border-radius:14px; padding:18px;
   color:inherit; text-decoration:none; display:flex; flex-direction:column; gap:4px;
@@ -63,6 +63,9 @@ p{margin:6px 0}
 .pwrow input{flex:1 1 220px; font:inherit; padding:9px 12px; border:1px solid var(--hair); border-radius:10px;
   background:var(--screen); color:var(--ink)}
 .pwrow .btn{margin-top:0}
+.field{display:block; margin:10px 0 4px; font-size:14px; color:var(--ink2)}
+.field-input{width:100%; font:inherit; padding:9px 12px; border:1px solid var(--hair); border-radius:10px;
+  background:var(--sheet); color:var(--ink); margin-bottom:6px}
 
 .progress{color:var(--ink2); min-height:1.5em}
 
