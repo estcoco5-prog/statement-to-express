@@ -13,12 +13,23 @@ export const PLAIN = 0, HEADER = 1, MONEY = 2, MONEY_BOLD = 3, BAD = 4, BOLD = 5
 // typed document number like 6701001 stays text, as the Express template asks. EXTRA* = a helper column
 // that must be deleted before importing (grey).
 export const TODO = 7, EXTRA = 8, EXTRA_MONEY = 9, EXTRA_HEAD = 10;
+// Traffic-light fills, only in a workbook written with { lights: true } (the
+// picture tool's own file): every Express file keeps the answer key's styles.
+export const LIGHT_GREEN = 11, LIGHT_YELLOW = 12, LIGHT_RED = 13;
 
 // The fixed parts, copied byte-for-byte from the answer key's xlsx_writer.py
 // (generated with json.dumps, newlines included) - do not edit by hand.
 const CONTENT_TYPES = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">\n<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>\n<Default Extension=\"xml\" ContentType=\"application/xml\"/>\n<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>\n<Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>\n{sheet_overrides}\n</Types>";
 const ROOT_RELS = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\n<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>\n</Relationships>";
 const STYLES = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">\n<numFmts count=\"2\"><numFmt numFmtId=\"164\" formatCode=\"#,##0.00\"/><numFmt numFmtId=\"165\" formatCode=\"DD/MM/YYYY\"/></numFmts>\n<fonts count=\"3\">\n<font><sz val=\"10\"/><name val=\"Tahoma\"/></font>\n<font><b/><sz val=\"10\"/><name val=\"Tahoma\"/></font>\n<font><sz val=\"10\"/><color rgb=\"FFC00000\"/><name val=\"Tahoma\"/></font>\n</fonts>\n<fills count=\"5\">\n<fill><patternFill patternType=\"none\"/></fill>\n<fill><patternFill patternType=\"gray125\"/></fill>\n<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFEFEFEF\"/><bgColor indexed=\"64\"/></patternFill></fill>\n<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFFFFF00\"/><bgColor indexed=\"64\"/></patternFill></fill>\n<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFD9D9D9\"/><bgColor indexed=\"64\"/></patternFill></fill>\n</fills>\n<borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders>\n<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>\n<cellXfs count=\"11\">\n<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/>\n<xf numFmtId=\"0\" fontId=\"1\" fillId=\"2\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\"/>\n<xf numFmtId=\"164\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\"/>\n<xf numFmtId=\"164\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\" applyFont=\"1\"/>\n<xf numFmtId=\"0\" fontId=\"2\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyFont=\"1\"/>\n<xf numFmtId=\"0\" fontId=\"1\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyFont=\"1\"/>\n<xf numFmtId=\"165\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\"/>\n<xf numFmtId=\"49\" fontId=\"0\" fillId=\"3\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\" applyFill=\"1\"/>\n<xf numFmtId=\"0\" fontId=\"0\" fillId=\"4\" borderId=\"0\" xfId=\"0\" applyFill=\"1\"/>\n<xf numFmtId=\"164\" fontId=\"0\" fillId=\"4\" borderId=\"0\" xfId=\"0\" applyNumberFormat=\"1\" applyFill=\"1\"/>\n<xf numFmtId=\"0\" fontId=\"1\" fillId=\"4\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\"/>\n</cellXfs>\n<cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/></cellStyles>\n</styleSheet>";
+
+const STYLES_LIGHTS = STYLES
+  .replace('<fills count="5">', '<fills count="8">')
+  .replace('</fills>', ['FFC6EFCE', 'FFFFEB9C', 'FFFFC7CE'].map(c =>
+    `<fill><patternFill patternType="solid"><fgColor rgb="${c}"/><bgColor indexed="64"/></patternFill></fill>\n`).join('') + '</fills>')
+  .replace('<cellXfs count="11">', '<cellXfs count="14">')
+  .replace('</cellXfs>', [5, 6, 7].map(f =>
+    `<xf numFmtId="0" fontId="0" fillId="${f}" borderId="0" xfId="0" applyFill="1"/>\n`).join('') + '</cellXfs>');
 
 // Python's xml.sax.saxutils.escape: & < > only.
 const escape = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -123,7 +134,7 @@ function tableXml(sheet, tableId) {
 }
 
 // Every part of the workbook as [{name, text}], in the answer key's order.
-export function workbookParts(sheets) {
+export function workbookParts(sheets, { lights = false } = {}) {
   if (!sheets.length) throw new Error('a workbook needs at least one sheet');
   const tables = sheets.map((s, i) => [i + 1, s]).filter(([, s]) => s.table);
 
@@ -154,7 +165,7 @@ export function workbookParts(sheets) {
     { name: '_rels/.rels', text: ROOT_RELS },
     { name: 'xl/workbook.xml', text: workbook },
     { name: 'xl/_rels/workbook.xml.rels', text: workbookRels },
-    { name: 'xl/styles.xml', text: STYLES },
+    { name: 'xl/styles.xml', text: lights ? STYLES_LIGHTS : STYLES },
     ...sheets.map((s, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, text: sheetXml(s) })),
   ];
   tables.forEach(([i, sheet], n) => {
@@ -170,6 +181,6 @@ export function workbookParts(sheets) {
   return parts;
 }
 
-export function writeXlsx(sheets) {
-  return zipStore(workbookParts(sheets).map(p => ({ name: p.name, data: p.text })));
+export function writeXlsx(sheets, options) {
+  return zipStore(workbookParts(sheets, options).map(p => ({ name: p.name, data: p.text })));
 }

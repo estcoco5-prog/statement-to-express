@@ -59,6 +59,38 @@ export const MESSAGES = {
     th: 'เปิดรูปนี้ไม่ได้ ใช้ไฟล์ JPG หรือ PNG',
     en: 'This picture could not be opened. Use a JPG or PNG file.',
   },
+  'not-table': {
+    th: 'เปิดไฟล์นี้เป็นตาราง Excel หรือ CSV ไม่ได้',
+    en: 'This file could not be opened as an Excel (.xlsx) or CSV table.',
+  },
+  'old-xls': {
+    th: 'ไฟล์ .xls แบบเก่าเปิดไม่ได้ เปิดใน Excel แล้วบันทึกเป็น .xlsx',
+    en: 'Old .xls files cannot be opened here. Open it in Excel and save it as .xlsx.',
+  },
+  'too-big': {
+    th: 'ไฟล์นี้ใหญ่หรือกว้างเกินกว่าใบแจ้งยอดปกติ (เกิน 20 MB, 256 คอลัมน์ หรือ 20,000 แถว) จึงไม่เปิด',
+    en: 'This file is larger than any statement page (over 20 MB, 256 columns or 20,000 rows), so it was not opened.',
+  },
+  'date-1904': {
+    th: 'ไฟล์นี้ใช้การนับวันที่แบบปี 1904 (Excel บน Mac รุ่นเก่า) วันที่จะผิดไป 4 ปี เปิดใน Excel แล้วบันทึกเป็น CSV แล้วเลือกไฟล์ CSV แทน',
+    en: 'This file counts dates from 1904 (old Mac Excel), so its dates would read 4 years early. Open it in Excel, save it as CSV, and choose the CSV instead.',
+  },
+  'same-file': {
+    th: 'ไฟล์นี้เหมือนกับไฟล์ที่เลือกไว้แล้ว จึงไม่เพิ่มซ้ำ',
+    en: 'This file is the same as one already chosen, so it was not added again.',
+  },
+  'need-typed': {
+    th: 'พิมพ์ยอดยกมา หรือยอดคงเหลือปลายงวด (หรือทั้งสอง) จากใบแจ้งยอดจริงก่อน เพื่อให้ตรวจได้ว่ายอดติดลบหรือไม่',
+    en: 'Type the opening or the closing balance (or both) from the paper statement first, so the tool can tell an overdrawn account from one in credit.',
+  },
+  'bad-typed': {
+    th: 'อ่านยอดยกมา/ยอดคงเหลือปลายงวดที่พิมพ์ไม่ได้ พิมพ์แบบ 1,234.50 (ติดลบใส่ - ข้างหน้า) หรือเว้นว่าง',
+    en: 'A typed opening or closing balance could not be read. Type it like 1,234.50 (a minus in front if overdrawn), or leave it blank.',
+  },
+  'no-balance': {
+    th: 'ต้องเลือกคอลัมน์วันที่ ยอดคงเหลือ และจำนวนเงิน (ถอน/ฝาก หรือ จำนวนเงิน) ก่อน',
+    en: 'Choose the date, balance and amount columns (withdrawal/deposit, or one amount column) first.',
+  },
   'not-passbook': {
     th: 'ไม่พบบรรทัดรายการของสมุดบัญชีกรุงไทยในไฟล์นี้ สแกนหน้าที่พิมพ์รายการ ให้เรียบและเต็มหน้า',
     en: 'No Krungthai passbook lines were found. Scan the printed pages, flat and whole.',
@@ -85,9 +117,9 @@ export const STATUS_TEXT = {
 // Decision B (Co 2026-10-07): a photo statement with some rows unproved.
 export const PARTIAL_TEXT = {
   en: p => `${p.toExpress} proved rows go to Express; ${p.toCheck} row(s) to check by hand` +
-    (p.pages.length ? ` on photo page ${p.pages.join(', ')}` : '') + ' - listed on the "Rows to check" sheet',
+    (p.pages.length ? ` on page ${p.pages.join(', ')}` : '') + ' - listed on the "Rows to check" sheet',
   th: p => `${p.toExpress} รายการตรวจแล้วเข้า Express; ${p.toCheck} รายการต้องตรวจเอง` +
-    (p.pages.length ? ` (รูปหน้า ${p.pages.join(', ')})` : '') + ' ดูชีต "Rows to check"',
+    (p.pages.length ? ` (หน้า ${p.pages.join(', ')})` : '') + ' ดูชีต "Rows to check"',
 };
 
 export const UNTESTED_TEXT = {

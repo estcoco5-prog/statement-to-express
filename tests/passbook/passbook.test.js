@@ -108,10 +108,10 @@ test('a doubtful date, a sign that disagrees, an unread amount: each line listed
     line(2, 5, '07/02/68', '+1.00', '*12,491.17'));
   const s = passbookStatement('Passbook.pdf', lines, KTB_PASSBOOK);
   const why = Object.fromEntries(rowsToCheck(s).map(r => [`${r.page}:${r.line}`, r.notes.join('; ')]));
-  assert.match(why['1:3'], /earlier than the line above/);
-  assert.match(why['2:1'], /printed as a withdrawal but the balance says deposit/);
+  assert.match(why['1:3'], /earlier than page \d+ line \d+ above/);
+  assert.match(why['2:1'], /shown as a withdrawal but the balance says deposit/);
   assert.match(why['2:3'], /unsure of the date/);
-  assert.match(why['2:4'], /amount on this line could not be read/);
+  assert.match(why['2:4'], /the amount could not be read/);
   assert.match(why['1:2'], /may be read too late/);          // the line above a backwards date is listed too
   assert.deepEqual(partialRows(s).map(r => `${r.page}:${r.line}`), ['2:2']);
 });

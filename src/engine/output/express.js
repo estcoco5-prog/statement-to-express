@@ -273,6 +273,10 @@ export function buildRowsToCheck(group) {
       sheet.add(basename(s.name), new Cell(r.page ?? '', PLAIN), r.date, r.description,
         amount(withdrawal), amount(deposit), amount(r.balance),
         new Cell(r.notes.length ? r.notes.join('; ')
+          : s.heldPages?.has(r.page) ? 'this file does not carry on from the one before it (one missing, out of ' +
+            'order, or pictures that overlap), so nothing from it was sent - check its rows against the original'
+          : s.linkedRows && !s.linkedRows.has(at) && r.verified ? 'not linked to the opening or closing balance typed in by an ' +
+            'unbroken run of proved lines (a line that does not add up, or a balance of exactly 0, breaks the run) - check it against the original'
           : r.verified && at === 0 ? 'the first line: the opening balance it was checked against was read, not proved - ' +
             'check the amount against the photo'
           : r.verified && aboveUnproved ? 'the line above could not be proved, so the balance this amount was checked ' +

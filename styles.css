@@ -46,6 +46,9 @@ p{margin:6px 0}
   background:var(--sheet); border:1px solid var(--hair); border-radius:14px; padding:18px;
   color:inherit; text-decoration:none; display:flex; flex-direction:column; gap:4px;
 }
+label.tick { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; cursor: pointer; }
+label.tick input { margin-top: 4px; width: 18px; height: 18px; flex: none; }
+.tool[hidden]{display:none}
 .tool.dragging{border:2px dashed var(--accent); background:var(--accent-soft)}
 .tool.link:hover{border-color:var(--accent)}
 .btn{
@@ -63,6 +66,11 @@ p{margin:6px 0}
 .pwrow input{flex:1 1 220px; font:inherit; padding:9px 12px; border:1px solid var(--hair); border-radius:10px;
   background:var(--screen); color:var(--ink)}
 .pwrow .btn{margin-top:0}
+.maprow{display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:8px; margin:8px 0}
+.maprow label{display:grid; gap:4px; font-size:13px; color:var(--ink2)}
+.maprow select{font:inherit; padding:7px 9px; border:1px solid var(--hair); border-radius:8px; background:var(--sheet); color:var(--ink)}
+.preview{font-size:12.5px}
+.preview th .role{display:block; color:var(--accent-ink); font-weight:700}
 .field{display:block; margin:10px 0 4px; font-size:14px; color:var(--ink2)}
 .field-input{width:100%; font:inherit; padding:9px 12px; border:1px solid var(--hair); border-radius:10px;
   background:var(--sheet); color:var(--ink); margin-bottom:6px}
@@ -93,6 +101,17 @@ td.num{text-align:right; font-variant-numeric:tabular-nums}
 .steps{margin:6px 0 4px; font-size:14px; color:var(--ink2)}
 .steps b{color:var(--ink)}
 .table-wrap{overflow-x:auto}
+.picture-table{margin:12px 0}
+.lightbar{display:flex; flex-wrap:wrap; gap:6px 18px; align-items:center; padding:10px 14px; border-radius:10px; font-weight:600; margin:8px 0 12px}
+.lightbar.green{background:var(--good-soft)} .lightbar.yellow{background:var(--wait-soft)} .lightbar.red{background:var(--bad-soft)}
+.lightbar .counts{font-weight:400; color:var(--ink2)}
+.dot{display:inline-block; width:12px; height:12px; border-radius:50%; flex:none; vertical-align:middle}
+.dot.green{background:var(--good)} .dot.yellow{background:var(--wait)} .dot.red{background:var(--bad)} .dot.none{background:var(--hair)}
+.picture-table tr.yellow td{background:var(--wait-soft)} .picture-table tr.red td{background:var(--bad-soft)}
+.picture-table td.light{text-align:center} .picture-table td.why{color:var(--ink2); min-width:16em; white-space:normal}
+.checks{margin:10px 0} .checklist{margin:6px 0; padding-left:20px} .checklist li.fail{color:var(--bad)}
+.picture-table h4{margin:8px 0 4px}
+.picture-table td[contenteditable]:focus,.picture-table th[contenteditable]:focus{outline:2px solid var(--accent-ink); background:var(--sheet)}
 
 /* bank list */
 .banks{margin-top:26px; background:var(--sheet); border:1px solid var(--hair); border-radius:14px; padding:18px}

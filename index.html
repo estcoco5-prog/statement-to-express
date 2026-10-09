@@ -25,6 +25,18 @@
   </header>
 
   <section class="tools" aria-label="Tools">
+    <div class="tool" id="pictureTool">
+      <h2>Picture → Excel</h2>
+      <p class="sub">รูปใบแจ้งยอด → Excel</p>
+      <p>Photos or scans of a bank statement, any bank, one picture per page. The table is read on this
+        computer and shown for you to check and fix, then saved as Excel. Nothing is sent anywhere. ·
+        อ่านตารางจากรูปในเครื่องนี้ ตรวจและแก้ได้ แล้วบันทึกเป็น Excel</p>
+      <label class="btn primary" for="picturePicker">Choose pictures · เลือกรูป</label>
+      <input type="file" id="picturePicker" accept="image/jpeg,image/png,.jpg,.jpeg,.png,application/pdf,.pdf" multiple hidden>
+      <p class="hint">JPG, PNG, or a scanned PDF. Flat, bright, the whole page in the frame. ·
+        วางราบ สว่าง เห็นทั้งหน้า</p>
+    </div>
+
     <div class="tool" id="dropzone">
       <h2>Bank PDF → Express</h2>
       <p class="sub">ใบแจ้งยอด PDF → ไฟล์นำเข้า Express</p>
@@ -58,6 +70,18 @@
         ตอนนี้เฉพาะสมุดบัญชีกรุงไทย สแกนให้เรียบ</p>
     </div>
 
+    <!-- Excel → Express is paused (Co 2026-10-09): hidden until Co releases it; its checks run the Picture card. -->
+    <div class="tool" id="tableTool" hidden>
+      <h2>Excel → Express</h2>
+      <p class="sub">Excel ที่แปลงจากรูป → Express</p>
+      <p>A spreadsheet made from statement pictures by another tool (for example a picture-to-Excel
+        website), one file per page. We find the columns, prove every line by the balance, and make the
+        Express file. · ไฟล์ Excel ที่แปลงจากรูปใบแจ้งยอด ตรวจทุกบรรทัดด้วยยอดคงเหลือ</p>
+      <label class="btn primary" for="tablePicker">Choose Excel / CSV · เลือกไฟล์</label>
+      <input type="file" id="tablePicker" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" multiple hidden>
+      <p class="hint">.xlsx or .csv, with a balance column. Read on this computer. · ต้องมีคอลัมน์ยอดคงเหลือ อ่านในเครื่องนี้</p>
+    </div>
+
     <a class="tool link" href="https://estcoco5-prog.github.io/Pic-to-PDF/" rel="noopener">
       <h2>Photos → PDF</h2>
       <p class="sub">รูปถ่าย → PDF</p>
@@ -78,6 +102,43 @@
       <button type="button" class="btn" id="skipBtn">Skip · ข้าม</button>
     </form>
     <p class="hint">The password is used once to open the file, then forgotten. · ใช้รหัสผ่านเพื่อเปิดไฟล์ครั้งเดียว แล้วลืมทันที</p>
+  </section>
+
+  <section class="panel" id="picturePanel" hidden>
+    <h2>🖼️ Pictures → Excel · รูป → Excel</h2>
+    <p class="sub">Put the pages in order with ◀ ▶ (page 1 first), then read them. · เรียงหน้าด้วย ◀ ▶ แล้วกดอ่าน</p>
+    <ol class="photolist" id="pictureList"></ol>
+    <label class="tick" for="picturePassbook"><input type="checkbox" id="picturePassbook">
+      These are Krungthai passbook pages (dot-printed) - read them with the passbook reader ·
+      เป็นหน้าสมุดบัญชีกรุงไทย (พิมพ์แบบจุด)</label>
+    <div class="row">
+      <button type="button" class="btn primary" id="pictureGo">Read the tables · อ่านตาราง</button>
+      <button type="button" class="btn" id="pictureClear">Clear · ล้าง</button>
+    </div>
+    <p class="bad" id="pictureError" style="white-space: pre-line" hidden></p>
+    <div id="pictureResult" hidden>
+      <div class="lightbar" id="pictureLight" role="status"></div>
+      <div id="pictureWarnings"></div>
+      <label class="field" for="pictureOpening">Opening balance on the paper (a minus in front if overdrawn) - type both if you can: they turn proved lines green ·
+        ยอดยกมาบนกระดาษ (ติดลบใส่ - ข้างหน้า) ใส่ทั้งสองช่องถ้าได้</label>
+      <input type="text" class="field-input" id="pictureOpening" inputmode="decimal" autocomplete="off" spellcheck="false">
+      <label class="field" for="pictureClosing">Closing balance on the paper (a minus in front if overdrawn) ·
+        ยอดคงเหลือปลายงวดบนกระดาษ (ติดลบใส่ - ข้างหน้า)</label>
+      <input type="text" class="field-input" id="pictureClosing" inputmode="decimal" autocomplete="off" spellcheck="false">
+      <details class="checks"><summary>What was checked · ตรวจอะไรบ้าง</summary><ul class="checklist" id="pictureChecks"></ul></details>
+      <h3>The tables as read · ตารางที่อ่านได้</h3>
+      <p class="sub">Check every figure against the picture. Click a cell to fix it - the lights check it again at once. ·
+        ตรวจทุกตัวเลขเทียบกับรูป คลิกช่องเพื่อแก้ ไฟจะตรวจใหม่ทันที</p>
+      <div id="pictureTables"></div>
+      <label class="field" for="pictureAccount">Account number for Express (optional) · เลขที่บัญชี (ไม่บังคับ)</label>
+      <input type="text" class="field-input" id="pictureAccount" inputmode="numeric" autocomplete="off" spellcheck="false">
+      <div class="row">
+        <button type="button" class="btn primary" id="pictureDownload">⬇ Download Excel · ดาวน์โหลด Excel</button>
+        <button type="button" class="btn" id="pictureExpress">Convert to Express… · แปลงเป็น Express</button>
+      </div>
+      <p class="hint">Convert to Express only runs when you press it. Green lines go to Express; every other line is listed on a "Rows to check" sheet. ·
+        กดเองเท่านั้น บรรทัดสีเขียวเข้า Express ที่เหลืออยู่ในแผ่น "Rows to check"</p>
+    </div>
   </section>
 
   <section class="panel" id="photoPanel" hidden>
@@ -109,6 +170,31 @@
     <p class="bad" id="passbookError" hidden></p>
   </section>
 
+  <section class="panel" id="tablePanel" hidden>
+    <h2>📊 Spreadsheets · ไฟล์ Excel</h2>
+    <p class="sub">One file per statement page - put them in order with ◀ ▶. · หนึ่งไฟล์ต่อหนึ่งหน้า เรียงหน้าด้วย ◀ ▶</p>
+    <ol class="photolist" id="tableList"></ol>
+    <h3>Which column is which? · คอลัมน์ไหนคืออะไร</h3>
+    <p class="sub">Found from the headings - change any that are wrong. A balance column is needed. ·
+      หาจากหัวคอลัมน์ แก้ได้ถ้าไม่ถูก ต้องมีคอลัมน์ยอดคงเหลือ</p>
+    <div class="maprow" id="tableMap"></div>
+    <div class="table-wrap"><table class="preview" id="tablePreview"></table></div>
+    <label class="field" for="tableAccount">Account number (optional) · เลขที่บัญชี (ไม่บังคับ)</label>
+    <input type="text" class="field-input" id="tableAccount" inputmode="numeric" autocomplete="off" spellcheck="false">
+    <label class="field" for="tableOpening">Opening balance printed on the statement (a minus in front if overdrawn) - type both if you can: each line must link to one, so typing both saves checking lines by hand ·
+      ยอดยกมาที่พิมพ์บนใบแจ้งยอด (ติดลบใส่ - ข้างหน้า) - ต้องใส่ช่องนี้หรือช่องล่าง</label>
+    <input type="text" class="field-input" id="tableOpening" inputmode="decimal" autocomplete="off" spellcheck="false">
+    <label class="field" for="tableClosing">Closing balance printed on the statement (a minus in front if overdrawn) - type both if you can ·
+      ยอดคงเหลือปลายงวดที่พิมพ์บนใบแจ้งยอด (ติดลบใส่ - ข้างหน้า) - ต้องใส่ช่องนี้หรือช่องบน</label>
+    <input type="text" class="field-input" id="tableClosing" inputmode="decimal" autocomplete="off" spellcheck="false">
+    <div class="row">
+      <button type="button" class="btn primary" id="tableGo">Check → Express · ตรวจ → Express</button>
+      <button type="button" class="btn" id="tableClear">Clear · ล้าง</button>
+    </div>
+    <p class="bad" id="tableError" style="white-space: pre-line" hidden></p>
+    <p class="hint" id="tableSkipped" hidden></p>
+  </section>
+
   <p class="progress" id="progress" role="status" aria-live="polite"></p>
 
   <section id="results" hidden>
@@ -124,6 +210,7 @@
     <ul>
       <li>🟡 Other banks: tried with a general reader, not tested yet · ธนาคารอื่น: ลองอ่านได้ แต่ยังไม่ได้ทดสอบ</li>
       <li>📷 Photos and scanned PDFs: use Statement photos → Express - the 7 banks above only, never better than 🟡 · รูปถ่ายและไฟล์สแกน: ใช้ช่อง Statement photos → Express (เฉพาะ 7 ธนาคารข้างบน)</li>
+      <li>📊 A spreadsheet made from pictures (any bank): use Excel → Express - every line proved by its balance, never better than 🟡 · ไฟล์ Excel ที่แปลงจากรูป (ธนาคารใดก็ได้): ใช้ช่อง Excel → Express</li>
       <li>📒 Passbooks: use Passbook → Express - Krungthai passbooks only, never better than 🟠 (the last line is always checked by hand) · สมุดบัญชี: ใช้ช่อง Passbook → Express (เฉพาะกรุงไทย)</li>
     </ul>
     <p class="hint">🟢 proved and confirmed · 🟡 amounts proved; check dates and descriptions by eye ·

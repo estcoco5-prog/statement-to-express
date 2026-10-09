@@ -31,15 +31,18 @@ export class Statement {
 // doubt, so nothing goes. A bank's own PDF keeps the old rule: red, no file.
 const COMPLETENESS = [/^Every row agrees with the running balance$/, /^Final balance matches/,
   /^Total (withdrawals|deposits) matches/, /^Number of (withdrawals|deposits) matches/];
-// A passbook (src/passbook) lists every doubtful line on its own - a date that
-// goes backwards, a sign that disagrees, the last line - so those checks
-// failing still leave its other proved lines safe.
+// A line-by-line source (engine/lines.js: a passbook, a spreadsheet made from a
+// picture) lists every doubtful line on its own - a date that goes backwards,
+// a sign that disagrees, the last line - so those checks failing still leave
+// its other proved lines safe.
 const PASSBOOK_ALSO = [/^Dates never go backwards$/, /^No other anomalies on any row$/,
-  /^Last line confirmed by a later line$/, /^Each page carries on from the one before$/];
+  /^Last line confirmed by a later line$/, /^Each page carries on from the one before$/,
+  /^First line confirmed by the opening balance typed in$/, /^No rows repeated from an earlier file$/,
+  /^Every line linked to a balance typed in$/];
 export function partialRows(statement) {
-  if (!statement.fromPhoto || statusOf(statement) !== 'red') return null;
+  if (!statement.fromPhoto || statusOf(statement) !== 'red' || statement.contradicted) return null;
   const failed = statement.checks.filter(([, passed]) => !passed).map(([label]) => label);
-  const allowed = statement.passbook ? [...COMPLETENESS, ...PASSBOOK_ALSO] : COMPLETENESS;
+  const allowed = statement.perLine ? [...COMPLETENESS, ...PASSBOOK_ALSO] : COMPLETENESS;
   if (!failed.every(label => allowed.some(re => re.test(label)))) return null;
   const proved = statement.rows.filter((r, i) => confirmed(statement, i));
   return proved.length ? proved : null;
@@ -50,10 +53,14 @@ export function partialRows(statement) {
 // reader that misreads the same digit in a row's amount and its balance makes
 // that row look proved - only the NEXT row shows the break (G8 review).
 const CLOSING = /^Final balance matches/;
-function confirmed(statement, i) {
+export function confirmed(statement, i) {
   const rows = statement.rows;
   const good = r => r.verified && r.ok;
   if (!good(rows[i])) return false;
+  // A file that does not carry on from the one before sends nothing (engine/lines.js).
+  if (statement.heldPages?.has(rows[i].page)) return false;
+  // ...and linked to a typed balance that matched (engine/lines.js).
+  if (statement.linkedRows && !statement.linkedRows.has(i)) return false;
   // A tax row split from its interest row (verify.js splitTax) is proved only
   // as a pair with it: it goes exactly when its interest row goes.
   if (rows[i].isTax) return i > 0 && confirmed(statement, i - 1);
@@ -64,11 +71,13 @@ function confirmed(statement, i) {
   // Line 1 never qualifies: the opening it was checked against was only READ
   // (printed or worked back), never proved - a matching misread in it and in
   // line 1's amount would cancel out (G8 passbook re-review R1).
-  const before = i > 0 && rows[i - 1].verified;
+  // A person typing the opening from the original, and it agreeing with what
+  // was read, is what proves it (engine/lines.js, the Excel card).
+  const before = i > 0 ? rows[i - 1].verified : !!statement.openingConfirmed;
   if (!before) return false;
   // The next line confirms this balance by chaining on from it; for a passbook
   // that is all it needs to do (its own date or sign doubt is its own).
-  if (i + 1 < rows.length) return statement.passbook ? rows[i + 1].verified : good(rows[i + 1]);
+  if (i + 1 < rows.length) return statement.perLine ? rows[i + 1].verified : good(rows[i + 1]);
   return statement.checks.some(([label, passed]) => CLOSING.test(label) && passed);
 }
 // The rows a partial statement leaves out: the ones a person must check.
