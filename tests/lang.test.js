@@ -140,6 +140,12 @@ test('the messages written once in the code come out in Thai', () => {
     "two dates landed on one line (['01/01', '02/01']) - the row tolerance of 2.0pt is too generous for this statement",
     'the opening balance row (ยอดยกมา/B/F) was not found - without it the balance chain has no starting point',
     'the closing balance "12,3x" could not be read',
+    // BBL Transaction Report (Co 2026-10-13)
+    'A month or more of the statement period has no lines (allowed, listed)',
+    'no lines 2025-01-01 to 2025-01-31 - if the account was used then, this file may be cut short',
+    'no lines 2025-12-01 to 2025-12-31; no lines 2025-01-01 to 2025-01-31 - if the account was used then, this file may be cut short',
+    'the bank printed no totals to confirm it - the balance chain proves every line after the first',
+    'this report lists its newest line first, but 2 date(s) go the other way (first: 2025-02-01 then 2025-03-20) - the order cannot be trusted',
     // as the browser showed it on a picture table (the date as text, not a number)
     '"04/03/2025" could be day-first or month-first, and the dates in this file do not prove which (picture 1 line 3) - check the date',
     'the date number 45720 (04/03/2025) could be day-first or month-first, and the dates in this file do not prove which (file 1 row 3) - check the date',

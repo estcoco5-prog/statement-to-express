@@ -532,3 +532,42 @@ test('the Excel card refuses this app\'s own Picture -> Excel file, as xlsx or r
   const other = new TextEncoder().encode('Date,Description,Withdrawal,Deposit,Balance\n02/03/2025,x,,10.00,110.00\n');
   assert.ok((await readTableFile('other.csv', other)).length);
 });
+
+// A BBL Transaction Report-like page (Co 2026-10-13): newest line first, a
+// Debit column with a minus and a Credit column on every line, no brought-forward line.
+function newestPage(lines) {
+  const words = [word('Date', 40, 160), word('Description', 200, 160), word('Debit', 560, 160), word('Credit', 720, 160), word('Balance', 900, 160)];
+  lines.forEach(([date, desc, debit, credit, bal], i) => {
+    const y = 220 + i * 40;
+    words.push(word(date, 40, y), word(desc, 200, y), right(debit, 640, y), right(credit, 820, y), right(bal, 1020, y));
+  });
+  return words;
+}
+const NEWEST = [
+  ['20/03/2025', 'TRANSFER', '0.00', '300.00', '1,450.00'],
+  ['15/03/2025', 'PAYMENT', '-1,000.00', '0.00', '1,150.00'],
+  ['02/02/2025', 'CARD', '0.00', '150.00', '2,150.00'],
+  ['01/02/2025', 'CARD', '0.00', '500.00', '2,000.00'],
+];
+
+test('newest line first: checked oldest first, each line keeping its own picture row; the typed balances are the paper\'s ends', () => {
+  const t = { name: 'p1.jpg', ...pictureTable(newestPage(NEWEST), { w: 1100, h: 500 }) };
+  assert.ok(t.ok, t.reason);
+  assert.equal(t.rows[0][t.map.balance], 'Balance');
+  // opening: before the oldest line (the last line on the paper); closing: the newest line (the first)
+  const res = pictureLights([t], { openingText: '1,500.00', closingText: '1,450.00' });
+  assert.deepEqual(res.statement.rows.map(r => r.date), ['2025-02-01', '2025-02-02', '2025-03-15', '2025-03-20']);
+  assert.deepEqual(res.statement.rows.map(r => r.line), [5, 4, 3, 2], 'each line still points at its own row of the picture');
+  assert.equal(res.statement.rows[2].withdrawal, 100000, 'the minus debit is money out');
+  assert.deepEqual(res.set.counts, { green: 4, yellow: 0, red: 0 });
+  assert.ok(res.warnings.some(w => /newest line first/.test(w.en) && w.th), 'the person is told, in both languages');
+  // the screen rows stay in the picture's own order: the newest line is row 1
+  assert.equal(res.rows[0][1].light, 'green');
+});
+
+test('newest line first, typed the wrong way round (closing as opening): nothing goes green', () => {
+  const t = { name: 'p1.jpg', ...pictureTable(newestPage(NEWEST), { w: 1100, h: 500 }) };
+  const res = pictureLights([t], { openingText: '1,450.00', closingText: '1,500.00' });
+  assert.equal(res.set.counts.green, 0);
+  assert.equal(res.set.light, 'red');
+});

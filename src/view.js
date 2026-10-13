@@ -142,7 +142,7 @@ const worst = statuses => statuses.reduce((w, s) => (RANK[s] > RANK[w] ? s : w),
 // Screens get shared and photographed: show only the last 4 digits.
 export function maskAccount(account) {
   if (!account) return '(account number not read)';
-  return `•••• ${String(account).replace(/\D/g, '').slice(-4)}`;
+  return `•••• ${String(account).replace(/[^\dxX*]/g, '').slice(-4)}`;
 }
 
 export function summarise(results) {

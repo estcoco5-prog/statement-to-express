@@ -5,7 +5,7 @@ import * as pdfjs from '../vendor/pdfjs/pdf.min.mjs';
 import { readStatement, partialRows, rowsToCheck } from './engine/statement.js';
 import { StatementError } from './engine/errors.js';
 import { groupBatch } from './engine/batch.js';
-import { expressFiles, reviewFileName } from './engine/output/express.js';
+import { expressFiles, expressMonthFiles, reviewFileName } from './engine/output/express.js';
 import { buildWorkbook } from './engine/output/review.js';
 import { writeXlsx } from './engine/output/xlsx.js';
 import { PROFILES } from './engine/profiles.js';
@@ -189,10 +189,17 @@ function show(entries) {
       })),
       checks: g.checks,
       // said to the person, never acted on (table/statement.js)
-      warnings: [...new Map(g.statements.flatMap(s => s.warnings ?? []).map(w => [w.en, w])).values()],
+      warnings: [...new Map([
+        ...g.statements.flatMap(s => s.warnings ?? []),
+        // part of the stated period with no lines at all (Co 2026-10-13: said, never refused)
+        ...g.statements.flatMap(s => s.checks.filter(([label]) => label.startsWith('A month or more of the statement period has no lines'))
+          .map(([, , detail]) => ({ en: `${s.name}: ${detail}`, th: `${s.name}: ${thai(detail)}` }))),
+      ].map(w => [w.en, w])).values()],
       express: outs[i].fileName ? { fileName: outs[i].fileName, rows: outs[i].n } : { refused: outs[i].refused },
       reviews: g.statements.map(s => reviewFileName(s.name)),
       expressBytes: outs[i].bytes ? { en: outs[i].bytes, th: writeXlsx(thaiSheets(outs[i].sheets)) } : null,
+      // the same rows, one file per month (shown when the file spans more than one)
+      monthFiles: outs[i].bytes ? expressMonthFiles(g).map(m => ({ ...m, bytes: { en: m.bytes, th: writeXlsx(thaiSheets(m.sheets)) } })) : [],
       reviewBytes: g.statements.map(s => reviewBytes.get(s)),
     })),
     refusals: entries.filter(e => e.error).map(e => ({ name: e.name, ...e.error })),
@@ -263,10 +270,19 @@ function accountCard(a, g) {
   const dl = el('div', 'dl');
   if (a.express?.fileName) {
     dl.append(downloadButton(a.express.fileName, g.expressBytes, 'btn primary',
-      P(`⬇ Express file (${a.express.rows} rows)`, `⬇ ไฟล์ Express (${a.express.rows} รายการ)`)));
+      (g.monthFiles ?? []).length > 1
+        ? P(`⬇ Express file - whole period (${a.express.rows} rows)`, `⬇ ไฟล์ Express - ทั้งงวด (${a.express.rows} รายการ)`)
+        : P(`⬇ Express file (${a.express.rows} rows)`, `⬇ ไฟล์ Express (${a.express.rows} รายการ)`)));
   } else {
     dl.append(el('p', 'bad', P(`No Express file for this account: ${a.express.refused}`,
       `บัญชีนี้ไม่มีไฟล์ Express: ${thai(a.express.refused)}`)));
+  }
+  if ((g.monthFiles ?? []).length > 1) {
+    const months = el('div', 'months', el('span', 'sub', P('Or one Express file per month:', 'หรือแยกไฟล์ Express รายเดือน:')));
+    for (const m of g.monthFiles) {
+      months.append(downloadButton(m.fileName, m.bytes, 'btn small', P(`⬇ ${m.month} (${m.n} rows)`, `⬇ ${m.month} (${m.n} รายการ)`)));
+    }
+    dl.append(months);
   }
   a.reviews.forEach((name, i) => dl.append(downloadButton(name, g.reviewBytes[i], 'btn',
     P(`⬇ Review: ${name}`, `⬇ ไฟล์ตรวจสอบ: ${name}`))));

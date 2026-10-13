@@ -28,7 +28,7 @@ const FIXED = {
   'Dates are real Excel dates shown as DD/MM/YYYY (Western years), the same as the Express template. The format is fixed in the file, so a Thai Windows setting cannot turn them into Buddhist years.':
     'วันที่เป็นวันที่จริงของ Excel แสดงแบบ วว/ดด/ปปปป (ปี ค.ศ.) เหมือนแม่แบบ Express รูปแบบนี้กำหนดไว้ในไฟล์ การตั้งค่า Windows ภาษาไทยจึงเปลี่ยนเป็นปี พ.ศ. ไม่ได้',
   'Express import file - ฝาก-ถอนเงิน (BKTRN), several statements': 'ไฟล์นำเข้า Express - ฝาก-ถอนเงิน (BKTRN) รวมหลายใบแจ้งยอด',
-  'Statements in this file': 'จำนวนใบแจ้งยอดในไฟล์นี้', 'Rows in this file': 'จำนวนรายการในไฟล์นี้',
+  'Statements in this file': 'จำนวนใบแจ้งยอดในไฟล์นี้', 'Month in this file': 'เดือนในไฟล์นี้', 'Rows in this file': 'จำนวนรายการในไฟล์นี้',
   'Withdrawals (ถอน)': 'ยอดรวมถอน', 'Deposits (ฝาก)': 'ยอดรวมฝาก',
   'Before importing': 'ก่อนนำเข้า', '1. Fill every YELLOW cell': '1. กรอกทุกช่องสีเหลือง',
   'DOCNUM and BNKACC': 'DOCNUM และ BNKACC',

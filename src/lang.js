@@ -144,6 +144,12 @@ const RULES = [
   [/^(\d+) row\(s\), total (.+)$/, '$1 รายการ รวม $2'],
   [/^Opening balance \(not printed by the bank\) worked back from row 1$/, 'ยอดยกมา (ธนาคารไม่ได้พิมพ์) คำนวณย้อนจากรายการแรก'],
   [/^confirmed only through the totals checks above$/, 'ยืนยันได้ผ่านการตรวจยอดรวมข้างบนเท่านั้น'],
+  [/^the bank printed no totals to confirm it - the balance chain proves every line after the first$/,
+    'ธนาคารไม่ได้พิมพ์ยอดรวมไว้ให้ยืนยัน - ยอดคงเหลือที่ต่อเนื่องกันยืนยันทุกบรรทัดหลังบรรทัดแรก'],
+  [/^A month or more of the statement period has no lines \(allowed, listed\)$/,
+    'มีช่วงหนึ่งเดือนขึ้นไปในงวดที่ไม่มีรายการเลย (ใช้ได้ แสดงไว้ให้ทราบ)'],
+  [/^no lines (\S+) to (\S+)(?: - if the account was used then, this file may be cut short)?$/,
+    (m, a, b) => `ไม่มีรายการ ${a} ถึง ${b}${m.includes(' - if ') ? ' - ถ้าบัญชีมีการใช้งานช่วงนั้น ไฟล์นี้อาจขาดหายไปบางส่วน' : ''}`],
   [/^Rows dated outside the statement period \(allowed, listed\)$/, 'รายการที่ลงวันที่นอกงวดใบแจ้งยอด (ใช้ได้ แสดงไว้ให้ทราบ)'],
   [/^No other anomalies on any row$/, 'ไม่มีความผิดปกติอื่นในรายการใด'],
   [/^(\d+) row\(s\) carry a warning$/, '$1 รายการมีคำเตือน'],
@@ -213,6 +219,8 @@ const RULES = [
   [/^\(account number not read\)$/, '(อ่านเลขที่บัญชีไม่ได้)'],
   [/^\(period not read\)$/, '(อ่านงวดไม่ได้)'],
   [/^this file is not a photo that can be opened$/, 'ไฟล์นี้ไม่ใช่รูปที่เปิดได้'],
+  [/^this report lists its newest line first, but (\d+) date\(s\) go the other way \(first: (\S+) then (\S+)\) - the order cannot be trusted$/,
+    'รายงานนี้เรียงรายการล่าสุดไว้ก่อน แต่มี $1 วันที่ที่เรียงสวนทาง (แรกสุด: $2 แล้ว $3) - จึงเชื่อลำดับไม่ได้'],
   [/^HEIC photo$/, 'รูปแบบ HEIC'],
 ];
 

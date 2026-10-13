@@ -144,3 +144,6 @@ html[data-lang="th"] .l-en, html[data-lang="en"] .l-th{display:none !important}
 .langswitch button{font:inherit; font-size:15px; font-weight:600; border:0; background:transparent; color:var(--ink2); padding:6px 16px; min-height:40px; cursor:pointer}
 .langswitch button[aria-pressed="true"]{background:var(--accent); color:var(--on-accent)}
 .langswitch button:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
+
+/* one Express file per month: a row of small buttons under the whole-period one */
+.months{display:flex; flex-wrap:wrap; gap:6px 8px; align-items:center; flex-basis:100%}

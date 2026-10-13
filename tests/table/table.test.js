@@ -494,3 +494,32 @@ test('warnings: one unsigned amount column says the overdraft risk; dates are al
     { date: 0, description: 1, withdrawal: 2, deposit: 3, balance: 4 }, { openingText: '1,000.00', closingText: '1,010.00' });
   assert.deepEqual(twoCols.warnings, [WARN_DATES]);
 });
+
+test('newest line first is decided by the dates AND the balance together; either alone leaves the order as it is', async () => {
+  const { newestFirst } = await import('../../src/table/statement.js');
+  const L = (date, amount, balance) => ({ date, dateNote: null, amount, balance });
+  // newest first: dates step back, each balance links to the line below
+  assert.equal(newestFirst([L('2025-03-20', 300, 1450), L('2025-03-15', 1000, 1150), L('2025-02-02', 150, 2150), L('2025-02-01', 500, 2000)]), true);
+  // oldest first
+  assert.equal(newestFirst([L('2025-02-01', 500, 2000), L('2025-02-02', 150, 2150), L('2025-03-15', 1000, 1150), L('2025-03-20', 300, 1450)]), false);
+  // dates step back but the balance chains forward (dates misread): left as it is
+  assert.equal(newestFirst([L('2025-03-20', 500, 2000), L('2025-03-15', 150, 2150), L('2025-02-02', 1000, 1150), L('2025-02-01', 300, 1450)]), false);
+  // one day only: nothing shows the order, left as it is
+  assert.equal(newestFirst([L('2025-03-20', 300, 1450), L('2025-03-20', 1000, 1150), L('2025-03-20', 150, 2150)]), false);
+});
+
+test('a spreadsheet listing its newest line first (Excel card) is proved oldest first too', () => {
+  const [sheet] = readCsv(`Date,Description,Debit,Credit,Balance
+20/03/2025,TRANSFER,0.00,300.00,"1,450.00"
+15/03/2025,PAYMENT,"-1,000.00",0.00,"1,150.00"
+13/03/2025,CARD,0.00,150.00,"2,150.00"
+02/03/2025,CARD,0.00,500.00,"2,000.00"
+`);
+  const { map } = findColumns(sheet.rows);
+  const s = tableStatement('r.csv', [{ name: 'r.csv', rows: sheet.rows }], map, { openingText: '1,500.00', closingText: '1,450.00' });
+  assert.equal(s.newestFirst, true);
+  assert.deepEqual(s.rows.map(r => r.date), ['2025-03-02', '2025-03-13', '2025-03-15', '2025-03-20']);
+  assert.ok(s.rows.every(r => r.verified));
+  assert.ok(s.rows.every(r => !r.dateDoubt), 'reversed, the dates run in order');
+  assert.equal(statusOf(s), 'yellow', s.checks.filter(c => !c[1]).map(c => c[2]).join('; '));
+});

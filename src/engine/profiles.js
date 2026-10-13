@@ -17,7 +17,8 @@ export const col = (name, lo, hi) => ({ name, lo, hi });
 export function profile(p) {
   const marks = { total_items: [], totals_line: [], ...p.marks };
   return { dateOrder: 'dmy', dateStyle: 'numeric', balanceEveryRow: true,
-           openingPrinted: true, remarkFields: null, untested: false, wrapReach: null, codeNames: {}, ...p, marks };
+           openingPrinted: true, remarkFields: null, untested: false, wrapReach: null, codeNames: {},
+           newestFirst: false, signedAmounts: false, timeSeconds: false, ...p, marks };
 }
 
 const KBANK = profile({
@@ -247,7 +248,48 @@ const KTB_CORP = profile({
   },
 });
 
-export const PROFILES = { kbank: KBANK, scb: SCB, ktb: KTB, uob: UOB, bbl: BBL, kkp: KKP, ktbcorp: KTB_CORP };
+// BBL Transaction Report - Bangkok Bank's business internet banking report, a
+// different form from the BBL statement (Co 2026-10-13). Newest line FIRST, no
+// brought-forward line, no totals, debits printed with a minus, and the
+// balance at the top is the PRINT-date balance (never read as the closing).
+const BBL_REPORT = profile({
+  key: "bblreport", bank: "BBL Transaction Report (ธนาคารกรุงเทพ)",
+  // Column headings measured on the real PDF: the photo reader lines a photo up by these.
+  anchors: [{ text: "Description", x0: 239.8, y0: 193.3 }, { text: "Debit", x0: 491.8, y0: 193.3 }, { text: "Credit", x0: 585.4, y0: 193.3 }, { text: "Channel", x0: 758.2, y0: 193.3 }],
+  columns: [
+    col("date", 30.0, 76.0),
+    col("time", 76.0, 150.0),
+    col("value_date", 150.0, 235.0),
+    col("description", 235.0, 395.0),
+    col("details", 395.0, 480.0),
+    col("amount", 480.0, 680.0),
+    col("balance", 680.0, 756.0),
+    col("channel", 756.0, 850.0),
+    col("details", 850.0, 1051.0),
+  ],
+  amountSplitX: 620.0,
+  openingPrinted: false,
+  newestFirst: true,
+  signedAmounts: true,
+  timeSeconds: true,
+  remarkFields: ["description"],
+  marks: {
+    identify: ["Source Of Account"],
+    opening: [],
+    closing: [],
+    total_withdraw: [],
+    total_deposit: [],
+    period: ["Period from"],
+    account_no: ["Account Number"],
+    account_name: ["Account Name"],
+    branch: ["Bank Branch"],
+    footer: ["Bangkok Bank Public Company Limited", "Created by", "Printed on", "Page no", "End of Report"],
+    furniture_text: ["Transaction Date", "ChequeNo.", "Ledger Balance", "Created by", "Printed on", "Page no", "End of Report", "Transaction Report"],
+  },
+});
+
+// bblreport before bbl: the report's footer carries BBL's identifying name too.
+export const PROFILES = { kbank: KBANK, scb: SCB, ktb: KTB, uob: UOB, bblreport: BBL_REPORT, bbl: BBL, kkp: KKP, ktbcorp: KTB_CORP };
 
 
 export function columnOf(p, x0, x1) {

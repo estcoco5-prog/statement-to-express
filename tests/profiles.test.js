@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PROFILES, identify, columnOf } from '../src/engine/profiles.js';
 
-test('six profiles in the Python order', () => {
-  assert.deepEqual(Object.keys(PROFILES), ['kbank', 'scb', 'ktb', 'uob', 'bbl', 'kkp', 'ktbcorp']);
+test('the profiles in the Python order (the BBL Transaction Report before the BBL statement)', () => {
+  assert.deepEqual(Object.keys(PROFILES), ['kbank', 'scb', 'ktb', 'uob', 'bblreport', 'bbl', 'kkp', 'ktbcorp']);
 });
 
 test('a column owns a word by its centre', () => {

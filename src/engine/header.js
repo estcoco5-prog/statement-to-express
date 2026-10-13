@@ -16,10 +16,14 @@ export function cellsByColumn(row, profile) {
 }
 
 // A bank account number: 10-12 digits, optionally split by dashes.
+// A bank account number: 10-12 digits, optionally split by dashes. A number
+// printed masked (BBL Transaction Report: 9990xxx123) counts when at least 6
+// real digits show; a short mask (xxx-x-x0000-x) never does.
 export function looksLikeAccount(text) {
-  if (!text || !/^\d[\d-]*\d$/.test(text)) return false;
+  if (!text || !/^\d[\dxX*-]*\d$/.test(text)) return false;
   const digits = [...text].filter(c => c >= '0' && c <= '9').length;
-  return digits >= 10 && digits <= 12;
+  const masked = [...text].filter(c => 'xX*'.includes(c)).length;
+  return digits + masked >= 10 && digits + masked <= 12 && (masked ? digits >= 6 : digits >= 10);
 }
 
 // 'รวมถอนเงิน 1 รายการ' -> 1. Some banks print the count as a bare number

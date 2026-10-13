@@ -47,7 +47,7 @@ const hasLoose = (text, marks) => (marks ?? []).some(m => loose(text).includes(l
 export function extractRows(pages, profile, facts) {
   const hasOpening = pages.source === 'photo' ? hasLoose : has;
   let opening = null;
-  const rows = [];
+  let rows = [];
 
   for (const [index, words] of pages.entries()) {
     // A summary page (made from photos, e.g. UOB's account overview) gave the
@@ -70,7 +70,7 @@ export function extractRows(pages, profile, facts) {
         dateWords = (buckets.date ?? []).filter(w => DATE_RE.test(w.text));
       }
       const balances = (buckets.balance ?? []).map(w => [w, parseAmount(w.text)]).filter(([, a]) => a !== null);
-      let money = (buckets.amount ?? []).map(w => [w, parseAmount(w.text)]).filter(([, a]) => a !== null);
+      let money = (buckets.amount ?? []).map(w => [w, amountOf(w.text, profile)]).filter(([, a]) => a !== null);
       // A transaction has a date and a balance - or, for a bank that prints the
       // balance only on some rows, a date and an amount.
       const isRow = dateWords.length > 0 &&
@@ -118,7 +118,7 @@ export function extractRows(pages, profile, facts) {
         row.notes.push('date could not be read');
       }
 
-      const times = (buckets.time ?? []).map(w => w.text).filter(t => TIME_RE.test(t));
+      const times = (buckets.time ?? []).map(w => w.text).filter(t => isTime(t, profile));
       row.time = times.length ? times[0] : '';
       row.description = (buckets.description ?? []).map(w => w.text).join(' ');
       row.channel = (buckets.channel ?? []).map(w => w.text).join(' ');
@@ -149,6 +149,8 @@ export function extractRows(pages, profile, facts) {
 
   for (const row of rows) flagFurniture(row, profile);
 
+  if (profile.newestFirst) rows = oldestFirst(rows);
+
   if (opening === null && !profile.openingPrinted && rows.length) opening = deriveOpening(rows[0], profile, facts);
 
   if (opening === null) {
@@ -157,6 +159,28 @@ export function extractRows(pages, profile, facts) {
       'the balance chain has no starting point');
   }
   return { opening, rows };
+}
+
+// An amount as printed. A bank that prints debits with a minus gets the sign
+// dropped: the running balance decides the direction, never the sign.
+function amountOf(token, profile) {
+  return parseAmount(profile.signedAmounts && token.startsWith('-') ? token.slice(1) : token);
+}
+
+const isTime = (token, profile) => TIME_RE.test(token) || (profile.timeSeconds && /^\d{1,2}:\d{2}:\d{2}$/.test(token));
+
+// Turn a newest-first listing oldest-first - only when every readable date runs
+// newest-first. A date going the other way means the order is not what the
+// bank's form says, and the file is refused rather than guessed at.
+function oldestFirst(rows) {
+  const dates = rows.map(r => r.date).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d ?? ''));
+  const later = dates.slice(1).map((b, i) => [dates[i], b]).filter(([a, b]) => b > a);
+  if (later.length) {
+    throw new StatementError(
+      `this report lists its newest line first, but ${later.length} date(s) go the other ` +
+      `way (first: ${later[0][0]} then ${later[0][1]}) - the order cannot be trusted`);
+  }
+  return rows.slice().reverse();
 }
 
 // Catch page furniture that leaked into a transaction's text. The balance

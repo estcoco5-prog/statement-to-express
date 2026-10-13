@@ -162,7 +162,10 @@ export function buildChecks(opening, rows, closingComputed, facts) {
     // Not a check in itself - the totals confirm it - but the reader must know
     // the bank never printed this number.
     checks.push(['Opening balance (not printed by the bank) worked back from row 1', true,
-      `${fmtMoney(opening)}; confirmed only through the totals checks above`]);
+      facts.withdraw_total !== null || facts.deposit_total !== null
+        ? `${fmtMoney(opening)}; confirmed only through the totals checks above`
+        : `${fmtMoney(opening)}; the bank printed no totals to confirm it - the balance ` +
+          'chain proves every line after the first']);
   }
 
   const bounds = periodBounds(facts);
@@ -176,6 +179,23 @@ export function buildChecks(opening, rows, closingComputed, facts) {
           const v = r.withdrawal || r.deposit || r.amount;
           return `${r.date} ${v === null ? 'None' : fmtMoney(v)}`;
         }).join('; ')]);
+    }
+  }
+
+  // A month or more of the stated period with no lines at all, at its start or
+  // end: allowed (Co 2026-10-13: work with the file the client sent), but said,
+  // because a bank export cut short looks exactly like this.
+  if (bounds && dated.length) {
+    const day = iso => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) / 86400000;
+    const shift = (iso, n) => new Date((day(iso) + n) * 86400000).toISOString().slice(0, 10);
+    const first = dated.map(r => r.date).reduce((a, b) => (b < a ? b : a));
+    const last = dated.map(r => r.date).reduce((a, b) => (b > a ? b : a));
+    const empty = [];
+    if (day(first) - day(bounds[0]) >= 28) empty.push(`${bounds[0]} to ${shift(first, -1)}`);
+    if (day(bounds[1]) - day(last) >= 28) empty.push(`${shift(last, 1)} to ${bounds[1]}`);
+    if (empty.length) {
+      checks.push(['A month or more of the statement period has no lines (allowed, listed)', true,
+        empty.map(e => `no lines ${e}`).join('; ') + ' - if the account was used then, this file may be cut short']);
     }
   }
 

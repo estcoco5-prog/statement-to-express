@@ -169,13 +169,16 @@ export function pictureTable(ocrWords, { w, h }) {
     const byLine = new Map();
     for (const x of g) if (!byLine.has(lineOf.get(x)) && cents(x) !== null) byLine.set(lineOf.get(x), cents(x));
     const seq = [...byLine].sort((p, q) => p[0] - q[0]);
-    let hits = 0;
+    // newest line first (a BBL Transaction Report): the change is the amount
+    // printed on the line ABOVE - counted apart, the better of the two kept
+    let hits = 0, back = 0;
+    const others = k => lines[seq[k][0]].words.filter(x => moneyish(x) && !g.includes(x)).map(cents);
     for (let k = 1; k < seq.length; k++) {
       const moved = Math.abs(seq[k][1] - seq[k - 1][1]);
-      const others = lines[seq[k][0]].words.filter(x => moneyish(x) && !g.includes(x)).map(cents);
-      if (moved && others.includes(moved)) hits++;
+      if (moved && others(k).includes(moved)) hits++;
+      if (moved && others(k - 1).includes(moved)) back++;
     }
-    return hits;
+    return Math.max(hits, back);
   };
   if (scored.length > 1 && scored[1].dated >= 0.8 * scored[0].dated) {
     const leaders = scored.filter(c => c.dated >= 0.8 * scored[0].dated).map(c => ({ ...c, chain: chain(c.g) }));

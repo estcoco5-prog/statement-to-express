@@ -27,8 +27,28 @@ export const WARN_DATES = {
   en: 'The balance proves each amount, not its date: dates are only checked to be in order - compare them with the paper.',
   th: 'ยอดคงเหลือยืนยันจำนวนเงิน ไม่ได้ยืนยันวันที่ ระบบตรวจเพียงว่าวันที่เรียงลำดับ ให้เทียบวันที่กับกระดาษ',
 };
-function warningsFor(lines, map) {
+export const WARN_NEWEST = {
+  en: 'These pages list the newest line first: the lines were put oldest first before checking. Type the opening balance as the balance before the oldest line (the last line of the last page), and the closing balance as the balance of the newest line (the first line of the first page).',
+  th: 'หน้าเหล่านี้เรียงรายการล่าสุดไว้ก่อน ระบบจึงเรียงใหม่จากเก่าไปใหม่ก่อนตรวจ ยอดยกมาให้พิมพ์ยอดก่อนรายการที่เก่าที่สุด (บรรทัดสุดท้ายของหน้าสุดท้าย) และยอดปลายงวดให้พิมพ์ยอดของรายการล่าสุด (บรรทัดแรกของหน้าแรก)',
+};
+
+// Newest line first (a BBL Transaction Report - Co 2026-10-13)? Two signs must
+// agree: more dates step back than forward, and more amounts link each balance
+// to the line BELOW than to the line above. Guessed wrong either way, the
+// balance chain breaks and nothing turns green - the safe side.
+export function newestFirst(lines) {
+  let back = 0, fwd = 0, below = 0, above = 0;
+  // every date read counts, doubted or not: the balance has the casting vote
+  const dated = lines.filter(l => l.date);
+  dated.forEach((l, i) => { if (i) { if (l.date < dated[i - 1].date) back++; else if (l.date > dated[i - 1].date) fwd++; } });
+  const links = (l, m) => l.amount !== null && l.balance !== null && m?.balance != null && Math.abs(l.balance - m.balance) === l.amount;
+  lines.forEach((l, i) => { if (links(l, lines[i + 1])) below++; if (links(l, lines[i - 1])) above++; });
+  return back > fwd && below > above;
+}
+
+function warningsFor(lines, map, newest = false) {
   const out = [WARN_DATES];
+  if (newest) out.unshift(WARN_NEWEST);
   const oneColumn = map.withdrawal === undefined && map.deposit === undefined;
   if (lines.length && oneColumn && lines.every(l => !l.sign) && lines.every(l => l.balance === null || l.balance >= 0)) {
     out.unshift(WARN_OVERDRAFT);
@@ -121,12 +141,16 @@ export function tableStatement(name, files, map, { account = null, closingText =
     }
   }
   for (const l of lines) { delete l.eitherWay; delete l.dateKind; delete l.dayOver12; }
+  // Newest first: checked oldest first, each line keeping its own file and row.
+  const newest = newestFirst(lines);
+  if (newest) lines.reverse();
   // A file whose first line does not chain on from the file before (one
   // missing, out of order, or pictures that overlap) sends nothing: overlapping
   // pictures would otherwise send the repeated rows twice (G8 Excel review B2).
   const statement = linesStatement(name, lines, TABLE_PROFILE,
     { opening, closing, account, pageWord: 'file', typedOpening, holdBrokenPages: true });
   statement.skipped = skipped;
-  statement.warnings = warningsFor(lines, map);
+  statement.warnings = warningsFor(lines, map, newest);
+  statement.newestFirst = newest;
   return statement;
 }

@@ -190,7 +190,8 @@ export function fmtComma(satang) {
 }
 
 // The second sheet of a combined Express file: what went in, what did not.
-export function buildBatchProof(group, wdTotal, depTotal) {
+// `month` ('2025-03'): this file holds that month only, of `rows` rows.
+export function buildBatchProof(group, wdTotal, depTotal, { month = null, rows = null } = {}) {
   const proof = new Sheet('Proof', { widths: [46, 10, 52] });
   caveatFirst(proof, group.profile);
   proof.add(new Cell('Express import file - ฝาก-ถอนเงิน (BKTRN), several statements', BOLD));
@@ -198,8 +199,9 @@ export function buildBatchProof(group, wdTotal, depTotal) {
   for (const [label, value] of [
     ['Bank', group.profile.bank],
     ['Account number', group.account || '(not read - this file holds one statement)'],
+    ...(month ? [['Month in this file', month]] : []),
     ['Statements in this file', group.statements.length - group.excluded().length],
-    ['Rows in this file', group.expressRows().length],
+    ['Rows in this file', rows ?? group.expressRows().length],
     ['Withdrawals (ถอน)', fmtComma(wdTotal)],
     ['Deposits (ฝาก)', fmtComma(depTotal)],
   ]) proof.add(new Cell(label, BOLD), '', String(value));
@@ -240,7 +242,7 @@ export function expressFileName(group) {
   const ym = iso => iso.slice(0, 4) + iso.slice(5, 7);
   const span = first && last ? `${ym(first[0])}-${ym(last[1])}` : 'period-unknown';
   const tail = group.account
-    ? group.account.replace(/\D/g, '').slice(-4)
+    ? group.account.replace(/[^\dxX*]/g, '').slice(-4)
     : basename(group.statements[0].name).replace(/\.[^.]*$/, '');
   return `${group.profile.key.toUpperCase()}_${tail}_${span}_BKTRN.xlsx`;
 }
@@ -251,7 +253,9 @@ export const reviewFileName = name => `${basename(name).replace(/\.[^.]*$/, '')}
 // (every month failed or was left out) gets a reason instead of a file.
 // Decision B: the rows a partial statement kept OUT of this file, with where to
 // find each one - the photo page - and why it could not be proved.
-export function buildRowsToCheck(group) {
+// `month` ('2025-03'): only that month's lines; `first` - this is the first
+// month's file, which also lists any line whose date could not be read.
+export function buildRowsToCheck(group, month = null, first = false) {
   const sheet = new Sheet('Rows to check', { widths: [24, 11, 12, 30, 14, 14, 15, 46], freezeRows: 2 });
   sheet.add(new Cell('These rows are NOT in this file. Check each against the photo, then key it into Express by hand. ' +
     'Until they are in, the month will not balance. If it still does not balance after that, a row may have been ' +
@@ -260,6 +264,7 @@ export function buildRowsToCheck(group) {
     'Balance (as read)', 'Why it is not in the file'].map(h => new Cell(h, HEADER)));
   for (const s of group.partials()) {
     for (const r of rowsToCheck(s)) {
+      if (month && (monthOf(r) ?? (first ? month : null)) !== month) continue;
       const amount = v => (v !== null && v !== undefined ? money(v, MONEY) : new Cell('', MONEY));
       // Not proved, so the balance never said which way it went - a passbook's
       // printed + or - does, as read.
@@ -289,6 +294,30 @@ export function buildRowsToCheck(group) {
     }
   }
   return sheet;
+}
+
+// One file per month (Co 2026-10-13: "our app should work on both long and
+// monthly"): the same rows as the combined file, split by the month of their
+// date. A line to check with no readable date is listed in the first month's file.
+const monthOf = r => (/^\d{4}-\d{2}-\d{2}$/.test(r.date ?? '') ? r.date.slice(0, 7) : null);
+
+export function expressMonthFiles(group) {
+  const rows = group.expressRows();
+  const months = [...new Set(rows.map(monthOf).filter(Boolean))].sort();
+  return months.map((month, i) => {
+    const part = rows.filter(r => monthOf(r) === month);
+    const wd = part.reduce((a, r) => a + (r.withdrawal ?? 0), 0);
+    const dep = part.reduce((a, r) => a + (r.deposit ?? 0), 0);
+    const sheets = [buildBktrn(part, group.profile.remarkFields), buildReadFirst(),
+      buildBatchProof(group, wd, dep, { month, rows: part.length })];
+    if (group.partials().length) {
+      const check = buildRowsToCheck(group, month, i === 0);
+      if (check.rows.length > 2) sheets.push(check);
+    }
+    const name = expressFileName(group).replace(/_\d{6}-\d{6}_BKTRN\.xlsx$|_period-unknown_BKTRN\.xlsx$/, '');
+    return { group, month, fileName: `${name}_${month.replace('-', '')}_BKTRN.xlsx`, sheets,
+      bytes: writeXlsx(sheets), n: part.length, wd, dep, first: i === 0 };
+  });
 }
 
 export function expressFiles(groups) {

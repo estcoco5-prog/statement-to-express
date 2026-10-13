@@ -28,7 +28,7 @@ function rc4(key, data) {
 // A UTF-16BE PDF string with its byte-order mark, as real statements write ActualText.
 const utf16 = s => '<FEFF' + [...s].map(c => c.charCodeAt(0).toString(16).padStart(4, '0')).join('') + '>';
 
-export function miniPdf(lines, { password = null, image = false } = {}) {
+export function miniPdf(lines, { password = null, image = false, width = 595 } = {}) {
   const esc = t => t.replace(/[\\()]/g, m => '\\' + m);
   // [x, y, [[printed, actual], ...]]: each printed piece is wrapped in its own
   // ActualText span - the way UOB's statements carry the real letters of a font
@@ -62,7 +62,7 @@ export function miniPdf(lines, { password = null, image = false } = {}) {
   const objs = [
     Buffer.from('<< /Type /Catalog /Pages 2 0 R >>'),
     Buffer.from('<< /Type /Pages /Kids [3 0 R] /Count 1 >>'),
-    Buffer.from('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> ' +
+    Buffer.from('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + width + ' 842] /Resources << /Font << /F1 4 0 R >> ' +
       '/XObject << /Im1 6 0 R >> >> /Contents 5 0 R >>'),
     Buffer.from('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'),
     Buffer.concat([Buffer.from(`<< /Length ${contentBytes.length} >>\nstream\n`), contentBytes, Buffer.from('\nendstream')]),
