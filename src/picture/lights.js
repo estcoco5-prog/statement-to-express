@@ -4,6 +4,7 @@
 // they stand now - a cell fixed by hand is checked again, nothing is re-read.
 import { tableStatement } from '../table/statement.js';
 import { confirmed } from '../engine/statement.js';
+import { moneyCell } from '../table/columns.js';
 
 // Every picture is put into one column order first, from its own column roles:
 // picture 2 may have been read with a column more or less than picture 1.
@@ -16,6 +17,20 @@ const MAP = Object.fromEntries(ROLES.map((role, i) => [role, i]));
 // [CO-DECIDED 2026-10-09]
 export const SET_AT_MOST = 'yellow';
 const WORSE = { green: 0, yellow: 1, red: 2 };
+
+// A big figure whose comma and dot the reader mixed up ("1.286,398.63",
+// "1,193.884.75"): the one way to read it with every mark but the last as a
+// thousands comma, or null. Only offered when the balance agrees with it.
+export function separatorFix(text) {
+  const t = String(text ?? '').trim();
+  if (!moneyCell(t).bad) return null;
+  const m = /^([-+]?)(\d{1,3}(?:[.,]\d{3})+)[.,](\d{2})$/.exec(t);
+  if (!m) return null;
+  const fixed = `${m[1]}${m[2].replace(/[.,]/g, ',')}.${m[3]}`;
+  const read = moneyCell(fixed);
+  return read.cents === null ? null : { text: fixed, cents: read.cents };
+}
+const money = c => (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2 });
 
 /**
  * @param tables [{ name, rows (row 0 = headings), map, dayFirst } | { name, error }] in page order
@@ -115,6 +130,29 @@ export function pictureLights(tables, { openingText = '', closingText = '', name
         why = `${why}; this may be +${shown} with the "+" read as a 4 - the balance agrees with ${shown}; check the paper`;
       }
     }
+    // A comma read as a dot (or the other way) in a figure that could not be
+    // read: when the balance agrees with the figure read the other way, it is
+    // offered with a button - only a person's tap puts it in, and the lights
+    // are checked again [CO-DECIDED 2026-10-09: suggest, never change].
+    const fixes = [];
+    if (light !== 'green') {
+      const t = read[r.page - 1].t;
+      const cellOf = role => (t.map?.[role] === undefined ? null : { c: t.map[role], text: files[r.page - 1].rows[r.line - 1][MAP[role]] });
+      const before = i > 0 ? s.rows[i - 1].balance : s.opening;
+      const next = s.rows[i + 1];
+      for (const role of ['withdrawal', 'deposit', 'amount', 'amount2', 'balance']) {
+        const cell = cellOf(role);
+        const fix = cell && separatorFix(cell.text);
+        if (!fix) continue;
+        const agrees = role === 'balance'
+          ? (r.amount !== null && before !== null && before !== undefined && Math.abs(fix.cents - before) === r.amount)
+            || (next && next.amount !== null && next.balance !== null && Math.abs(next.balance - fix.cents) === next.amount)
+          : r.balance !== null && before !== null && before !== undefined && Math.abs(r.balance - before) === fix.cents;
+        if (!agrees) continue;
+        fixes.push({ c: cell.c, from: cell.text, to: fix.text });
+        why = `${why}; "${cell.text}" may be ${fix.text} (a comma and a dot mixed up) - the balance agrees with ${money(fix.cents)} - check the paper, then tap Use`;
+      }
+    }
     // A passbook date suggested from the lines either side (never filled in):
     // the same goes for a date read otherwise; said while the date reads as then.
     const hint = read[r.page - 1].t.hints?.[r.line - 1];
@@ -136,7 +174,7 @@ export function pictureLights(tables, { openingText = '', closingText = '', name
     if (doubt && light === 'green') { light = 'yellow'; why = why.replace(/^proved by the balance/, doubt); }
     else if (doubt && !why.includes(doubt)) why = `${why}; ${doubt}`;
     counts[light]++;
-    rows[k][r.line - 1] = { light, why, at: i };
+    rows[k][r.line - 1] = { light, why, at: i, ...(fixes.length ? { fixes } : {}) };
   });
 
   for (const [label, passed, detail] of s.checks) checks.push({ label: say(label), passed, detail: say(detail) });

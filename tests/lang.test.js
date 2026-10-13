@@ -141,6 +141,7 @@ test('the messages written once in the code come out in Thai', () => {
     'the opening balance row (ยอดยกมา/B/F) was not found - without it the balance chain has no starting point',
     'the closing balance "12,3x" could not be read',
     // BBL Transaction Report (Co 2026-10-13)
+    '"1.286,398.63" could not be read as a balance (file 1 row 3); "1.286,398.63" may be 1,286,398.63 (a comma and a dot mixed up) - the balance agrees with 1,286,398.63 - check the paper, then tap Use',
     'A month or more of the statement period has no lines (allowed, listed)',
     'no lines 2025-01-01 to 2025-01-31 - if the account was used then, this file may be cut short',
     'no lines 2025-12-01 to 2025-12-31; no lines 2025-01-01 to 2025-01-31 - if the account was used then, this file may be cut short',

@@ -219,6 +219,8 @@ const RULES = [
   [/^\(account number not read\)$/, '(อ่านเลขที่บัญชีไม่ได้)'],
   [/^\(period not read\)$/, '(อ่านงวดไม่ได้)'],
   [/^this file is not a photo that can be opened$/, 'ไฟล์นี้ไม่ใช่รูปที่เปิดได้'],
+  [/^"([^"]*)" may be (\S+) \(a comma and a dot mixed up\) - the balance agrees with (\S+) - check the paper, then tap Use$/,
+    '"$1" อาจเป็น $2 (อ่านจุลภาคกับจุดสลับกัน) - ยอดคงเหลือตรงกับ $3 ตรวจกับกระดาษแล้วกด ใช้'],
   [/^this report lists its newest line first, but (\d+) date\(s\) go the other way \(first: (\S+) then (\S+)\) - the order cannot be trusted$/,
     'รายงานนี้เรียงรายการล่าสุดไว้ก่อน แต่มี $1 วันที่ที่เรียงสวนทาง (แรกสุด: $2 แล้ว $3) - จึงเชื่อลำดับไม่ได้'],
   [/^HEIC photo$/, 'รูปแบบ HEIC'],

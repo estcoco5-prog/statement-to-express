@@ -337,11 +337,36 @@ function pictureError(t) {
   setText($('pictureError'), t || '');
 }
 
-async function addPictures(files) {
+// A bank's own PDF (figures as text) is offered to Bank PDF -> Express, which
+// reads it exactly; "as pictures anyway" brings it back here (Co 2026-10-13).
+function offerBankPdf(files) {
+  const box = $('pictureTextPdf');
+  box.hidden = !files.length;
+  if (!files.length) return box.replaceChildren();
+  const names = files.map(f => f.name).join(', ');
+  const toBank = el('button', 'btn primary small', P('Read it in Bank PDF → Express (exact)', 'อ่านด้วย PDF จากธนาคาร → Express (ตรงทุกตัว)'));
+  toBank.type = 'button';
+  toBank.addEventListener('click', () => { offerBankPdf([]); $('dropzone').scrollIntoView({ behavior: 'smooth' }); run(files); });
+  const anyway = el('button', 'btn small', P('Read as pictures anyway', 'อ่านเป็นรูปภาพต่อไป'));
+  anyway.type = 'button';
+  anyway.addEventListener('click', () => { offerBankPdf([]); addPictures(files, { asPictures: true }); });
+  box.replaceChildren(
+    el('p', '', P(`ℹ ${names}: this is the bank's own PDF, with its figures as text. Bank PDF → Express reads every figure exactly - reading it as pictures can misread some.`,
+      `ℹ ${names}: ไฟล์นี้เป็น PDF จากธนาคารโดยตรง ตัวเลขเป็นข้อความ ใช้ PDF จากธนาคาร → Express จะอ่านได้ตรงทุกตัว ส่วนการอ่านเป็นรูปภาพอาจอ่านตัวเลขผิดบางตัว`)),
+    el('div', 'row', toBank, anyway));
+}
+
+async function addPictures(files, { asPictures = false } = {}) {
   pictureError('');
+  offerBankPdf([]);
   let tooMany = 0;
+  const textPdfs = [];
   for (const file of files) {
     if (/pdf/i.test(file.type) || /\.pdf$/i.test(file.name)) {
+      if (!asPictures) {
+        const { moneyTextIn, TEXT_PDF_AT } = await import('./picture/textpdf.js');
+        if (await moneyTextIn(new Uint8Array(await file.arrayBuffer()), pdfjs) >= TEXT_PDF_AT) { textPdfs.push(file); continue; }
+      }
       try {
         const { picturesFromPdf } = await import('./photo/ocr.js');
         say(P(`Opening ${file.name}`, `กำลังเปิด ${file.name}`));
@@ -363,6 +388,7 @@ async function addPictures(files) {
   pictureTables = null;
   clearResults();
   drawPictures();
+  offerBankPdf(textPdfs);
 }
 
 function clearPictures() {
@@ -376,6 +402,7 @@ function clearPictures() {
   $('pictureClosing').value = '';
   $('pictureAccount').value = '';
   $('picturePassbook').checked = false;
+  offerBankPdf([]);
   drawPictures();
 }
 
@@ -417,6 +444,7 @@ function drawPictureTables() {
     const table = el('table', 'preview');
     t.rows.forEach((row, r) => {
       const tr = el('tr', '');
+      const tds = [];
       const light = el(r === 0 ? 'th' : 'td', 'light', r === 0 ? P('Light', 'ไฟ') : '');
       tr.append(light);
       row.forEach((cellText, c) => {
@@ -426,10 +454,11 @@ function drawPictureTables() {
         td.spellcheck = false;
         td.addEventListener('input', () => { t.rows[r][c] = td.textContent.trim(); relightSoon(); });
         tr.append(td);
+        tds.push(td);
       });
       const why = el(r === 0 ? 'th' : 'td', 'why', r === 0 ? P('Why', 'เหตุผล') : '');
       tr.append(why);
-      pictureMarks[k][r] = { tr, light, why };
+      pictureMarks[k][r] = { tr, light, why, tds };
       table.append(tr);
     });
     box.append(el('div', 'table-wrap', table));
@@ -482,6 +511,17 @@ async function relight() {
     dot.setAttribute('aria-label', l ? pick(LIGHT_WORD[l.light]) : pick(P('not checked', 'ยังไม่ได้ตรวจ')));
     m.light.replaceChildren(dot);
     setText(m.why, l?.why ? pair(l.why) : '');
+    // a figure the balance agrees with, offered: only this tap puts it in
+    for (const f of l?.fixes ?? []) {
+      const use = el('button', 'btn small', P(`Use ${f.to}`, `ใช้ ${f.to}`));
+      use.type = 'button';
+      use.addEventListener('click', () => {
+        pictureTables[k].rows[r][f.c] = f.to;
+        if (m.tds[f.c]) m.tds[f.c].textContent = f.to;
+        relightSoon();
+      });
+      m.why.append(' ', use);
+    }
   }));
 }
 

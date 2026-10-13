@@ -7,7 +7,10 @@ import { pictureWorkbook } from '../../src/picture/excel.js';
 import { readXlsx, readTableFile } from '../../src/table/read.js';
 import { tableStatement } from '../../src/table/statement.js';
 import { statusOf, partialRows, rowsToCheck } from '../../src/engine/statement.js';
-import { pictureLights, SET_AT_MOST } from '../../src/picture/lights.js';
+import { pictureLights, SET_AT_MOST, separatorFix } from '../../src/picture/lights.js';
+import { moneyTextIn, TEXT_PDF_AT } from '../../src/picture/textpdf.js';
+import { miniPdf } from '../minipdf.js';
+import pdfjs from '../pdfjs.js';
 import { passbookTables } from '../../src/picture/passbook.js';
 import { passbookStatement } from '../../src/passbook/statement.js';
 import { KTB_PASSBOOK } from '../../src/passbook/printers/ktb.js';
@@ -570,4 +573,48 @@ test('newest line first, typed the wrong way round (closing as opening): nothing
   const res = pictureLights([t], { openingText: '1,450.00', closingText: '1,500.00' });
   assert.equal(res.set.counts.green, 0);
   assert.equal(res.set.light, 'red');
+});
+
+// Co 2026-10-13: a comma read as a dot in a big figure ("1.286,398.63") is
+// offered with a Use button when the balance agrees - never put in by itself.
+test('separatorFix: the one comma reading of a mixed-up figure; a figure that reads already, or an odd one, gets none', () => {
+  assert.deepEqual(separatorFix('1.286,398.63'), { text: '1,286,398.63', cents: 128639863 });
+  assert.deepEqual(separatorFix('-1,193.884.75'), { text: '-1,193,884.75', cents: 119388475 });
+  for (const t of ['1,286,398.63', '12.50', '1.234', '1.2345,00.10', 'abc', '']) assert.equal(separatorFix(t), null, t);
+});
+
+const BIG = [
+  ['', 'BROUGHT FORWARD', '', '', '1,200,000.00'],
+  ['03/03/2025', 'Transfer in', '', '86,398.63', '1.286,398.63'],      // the balance read with a dot for a comma
+  ['04/03/2025', 'Payment', '1,000,000.00', '', '286,398.63'],
+  ['05/03/2025', 'Salary', '', '1.000,000.00', '1,286,398.63'],         // the amount read so
+];
+
+test('a mixed-up figure the balance agrees with is offered, not changed; tapping Use turns the lines green', () => {
+  const t = { name: 'p1.jpg', ...pictureTable(page(BIG), { w: 1100, h: 500 }) };
+  assert.ok(t.ok, t.reason);
+  let res = pictureLights([t], { openingText: '1,200,000.00', closingText: '1,286,398.63' });
+  const offered = res.rows[0].flatMap((r, i) => (r?.fixes ?? []).map(f => ({ i, ...f })));
+  assert.deepEqual(offered.map(f => [f.from, f.to]), [['1.286,398.63', '1,286,398.63'], ['1.000,000.00', '1,000,000.00']]);
+  assert.ok(offered.every(f => t.rows[f.i][f.c] === f.from), 'the cells are left as read');
+  assert.match(res.rows[0][offered[0].i].why, /may be 1,286,398\.63 \(a comma and a dot mixed up\) - the balance agrees/);
+  assert.equal(res.set.counts.green, 0);
+  for (const f of offered) t.rows[f.i][f.c] = f.to;          // the person taps Use
+  res = pictureLights([t], { openingText: '1,200,000.00', closingText: '1,286,398.63' });
+  assert.deepEqual(res.set.counts, { green: 3, yellow: 0, red: 0 });
+});
+
+test('a mixed-up figure the balance does NOT agree with is not offered', () => {
+  const rows = BIG.map(r => [...r]);
+  rows[1][4] = '1.286,398.68';                                  // neither the line above nor the one below agrees
+  const t = { name: 'p1.jpg', ...pictureTable(page(rows), { w: 1100, h: 500 }) };
+  const res = pictureLights([t], { openingText: '1,200,000.00' });
+  assert.ok(!res.rows[0].some(r => r?.fixes?.some(f => f.from === '1.286,398.63')));
+});
+
+test('a bank\'s own PDF (figures as text) is told apart from a scan, for Picture -> Excel to offer Bank PDF -> Express', async () => {
+  const text = miniPdf([[40, 60, 'Date'], ...['1,000.00', '250.00', '1,250.00', '80.00', '1,170.00', '5.00'].map((v, i) => [300, 100 + i * 20, v])]);
+  assert.ok(await moneyTextIn(text, pdfjs) >= TEXT_PDF_AT);
+  assert.equal(await moneyTextIn(miniPdf([], { image: true }), pdfjs), 0, 'a scan has no text');
+  assert.equal(await moneyTextIn(new Uint8Array([1, 2, 3]), pdfjs), 0, 'a broken file counts as no text');
 });
