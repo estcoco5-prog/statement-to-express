@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { pictureTable } from '../../src/picture/table.js';
 import { pictureWorkbook } from '../../src/picture/excel.js';
-import { readXlsx } from '../../src/table/read.js';
+import { readXlsx, readTableFile } from '../../src/table/read.js';
 import { tableStatement } from '../../src/table/statement.js';
 import { statusOf, partialRows, rowsToCheck } from '../../src/engine/statement.js';
 import { pictureLights, SET_AT_MOST } from '../../src/picture/lights.js';
@@ -449,7 +449,7 @@ test('two confident late misreads in a row are both held on the Passbook card (G
   assert.ok(!(partialRows(s) ?? []).some(r => r.date === '2025-03-09'));
 });
 
-// Passbook plan, Co 2026-10-09: step 2 fill (an unread date only), step 3 keep held. Invented.
+// Passbook plan, Co 2026-10-09: step 2 suggest only, step 3 keep held. Invented.
 const DAYS = [
   { page: 1, line: 1, date: '06/03/68', amount: null, balance: '*1,000.00', dateMargin: 0.2 },
   { page: 1, line: 2, date: '07/03/68', amount: '+100.00', balance: '*1,100.00', dateMargin: 0.2 },
@@ -460,28 +460,75 @@ const DAYS = [
   { page: 1, line: 7, date: '07/03/68', amount: '+10.00', balance: '*1,250.00', dateMargin: 0.2 },
 ];
 
-test('an unread passbook date between two same-day lines is filled in and said; a date read is only suggested', () => {
+test('a passbook date between two same-day lines is only suggested, never filled in (Co 2026-10-09: suggest only)', () => {
   const [t] = passbookTables(DAYS, ['book - page 1']);
-  assert.equal(t.rows[3][0], '07/03/68', 'the unread date is filled in, in the cell');
+  assert.equal(t.rows[3][0], '', 'an unread date stays empty');
   assert.equal(t.rows[5][0], '02/03/68', 'a date read is left as read');
   const lit = pictureLights([t], { openingText: '1,000.00', closingText: '1,250.00' });
-  assert.match(lit.rows[0][3].why, /could not be read: filled in as 07\/03\/68/);
-  assert.match(lit.rows[0][5].why, /lines either side both read 07\/03\/68 - it may be 07\/03\/68/);
+  assert.match(lit.rows[0][3].why, /lines either side both read 07\/03\/68 - it may be 07\/03\/68/);
+  assert.notEqual(lit.rows[0][3].light, 'green');
+  assert.ok(!(partialRows(lit.statement) ?? []).some(r => r.line === 4), 'the unread date is not sent');
+  assert.match(lit.rows[0][5].why, /it may be 07\/03\/68/);
   assert.notEqual(lit.rows[0][5].light, 'green');
   // step 3: the amount is said from the balances, never filled in, and the line stays held
   assert.match(lit.rows[0][6].why, /balance changed by \+50\.00 - that may be the amount/);
   assert.equal(lit.rows[0][6].light, 'red');
   assert.equal(t.rows[6][2], '');
-  // the person changes the filled date: the note goes, it is theirs now
-  t.rows[3][0] = '08/03/68';
-  assert.ok(!/filled in/.test(pictureLights([t], { openingText: '1,000.00' }).rows[0][3].why));
+  // the person types the suggested date: the suggestion goes, the date is theirs
+  t.rows[3][0] = '07/03/68';
+  assert.ok(!/it may be/.test(pictureLights([t], { openingText: '1,000.00' }).rows[0][3].why));
 });
 
-test('no fill when a line either side was read unsurely, or the two days differ, or only the brought-forward line is above', () => {
+test('no suggestion when a line either side was read unsurely, or the two days differ, or only the brought-forward line is above', () => {
   const unsure = DAYS.map(l => (l.line === 2 ? { ...l, dateMargin: 0.01 } : l));
-  assert.equal(passbookTables(unsure, ['b'])[0].rows[3][0], '');
+  assert.equal(passbookTables(DAYS, ['b'])[0].hints[3]?.date, '', 'the case itself is suggested');
+  assert.equal(passbookTables(unsure, ['b'])[0].hints[3], null);
   const differ = DAYS.map(l => (l.line === 4 ? { ...l, date: '08/03/68' } : l));
-  assert.equal(passbookTables(differ, ['b'])[0].rows[3][0], '');
+  assert.equal(passbookTables(differ, ['b'])[0].hints[3], null);
   const bf = [{ ...DAYS[0], date: '07/03/68' }, { ...DAYS[2], line: 2 }, { ...DAYS[4], line: 3 }];
-  assert.equal(passbookTables(bf, ['b'])[0].rows[2][0], '', 'the brought-forward date does not count');
+  assert.equal(passbookTables(bf, ['b'])[0].hints[2], null, 'the brought-forward date does not count');
+});
+
+test('no amount hint on a first line whose opening was only worked out (G8 review 5 N1)', () => {
+  const t = { name: 'a.jpg', map: { date: 0, description: 1, amount: 2, balance: 3 }, dayFirst: true, dateEvidence: 'day',
+    rows: [['Date', 'Description', 'Amount', 'Balance'], ['02/03/68', 'x', '', '5,000.00'], ['03/03/68', 'y', '+100.00', '5,100.00']] };
+  assert.ok(!/balance changed by/.test(pictureLights([t]).rows[0][1].why));
+});
+
+test('the book\'s first line read is the brought-forward line even when page 1 was not read (G8 review 6 N1)', () => {
+  const [p1, p2] = passbookTables([{ page: 2, line: 1, date: '01/03/68', amount: null, balance: '*1,000.00', dateMargin: 0.2 },
+    { page: 2, line: 2, date: '02/03/68', amount: '+5.00', balance: '*1,005.00', dateMargin: 0.2 }], ['p1', 'p2']);
+  assert.ok(p1.error);
+  assert.equal(p2.rows[1][1], 'B/F');
+});
+
+test('a second book\'s brought-forward line mid-set is never a source for a fill (G8 review 7)', () => {
+  const lines = [
+    { page: 1, line: 1, date: '01/03/68', amount: null, balance: '*1,000.00', dateMargin: 0.2 },
+    { page: 1, line: 2, date: '10/03/68', amount: '+100.00', balance: '*1,100.00', dateMargin: 0.3 },
+    { page: 2, line: 1, date: '20/03/68', amount: null, balance: '*1,100.00', dateMargin: 0.3 },   // new book: B/F dated on issue day
+    { page: 2, line: 2, date: null, amount: '+40.00', balance: '*1,140.00', dateMargin: null },      // really 18/03
+    { page: 2, line: 3, date: '20/03/68', amount: '+10.00', balance: '*1,150.00', dateMargin: 0.3 },
+  ];
+  const tables = passbookTables(lines, ['old book', 'new book']);
+  assert.equal(tables[1].hints[2], null, 'nothing suggested from the brought-forward date');
+  tables[1].rows[1][1] = 'B/F';                    // the person labels it as the paper says
+  const lit = pictureLights(tables, { openingText: '1,000.00', closingText: '1,150.00' });
+  assert.notEqual(lit.rows[1][2].light, 'green');
+  assert.ok(!(partialRows(lit.statement) ?? []).some(r => r.page === 2 && r.line === 3), 'not sent to Express');
+});
+
+
+
+test('the Excel card refuses this app\'s own Picture -> Excel file, as xlsx or re-saved as CSV (G8 release review)', async () => {
+  const tables = passbookTables(PB, ['book - page 1', 'book - page 2']);
+  const lit = pictureLights(tables, { openingText: '1,000.00', closingText: '1,500.00' });
+  const bytes = pictureWorkbook(tables, lit);
+  await assert.rejects(readTableFile('2026-10-09 statement pictures.xlsx', bytes), e => e.code === 'own-picture-file');
+  const [sheet] = await readXlsx(bytes);
+  const csv = sheet.rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  await assert.rejects(readTableFile('pictures.csv', new TextEncoder().encode(csv)), e => e.code === 'own-picture-file');
+  // another tool's spreadsheet is still read
+  const other = new TextEncoder().encode('Date,Description,Withdrawal,Deposit,Balance\n02/03/2025,x,,10.00,110.00\n');
+  assert.ok((await readTableFile('other.csv', other)).length);
 });

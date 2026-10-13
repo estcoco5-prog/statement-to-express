@@ -12,19 +12,53 @@ import { PROFILES } from './engine/profiles.js';
 import { summarise, MESSAGES, STATUS_TEXT, UNTESTED_TEXT, PHOTO_TEXT, PARTIAL_TEXT } from './view.js';
 import { photoPage, pageSizeFor, imageMatrix } from './photo/pipeline.js';
 import { buildReadablePdf } from './photo/pdfwrite.js';
+import { lang, setLang, onLang, pair, isPair, pick, thai, both } from './lang.js';
+import { thaiSheets } from './lang-excel.js';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL('../vendor/pdfjs/pdf.worker.min.mjs', import.meta.url).href;
 
 const $ = id => document.getElementById(id);
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
+// A text given in both languages ({ en, th }) is kept, so the TH / EN switch
+// can change it where it stands; a plain string is shown as it is.
+const live = new Set();
+function text(t) {
+  const node = document.createTextNode(pick(t));
+  if (isPair(t)) { node.pair = t; live.add(node); }
+  return node;
+}
 // Build an element with plain text only - a file name is never read as HTML.
 function el(tag, cls, ...children) {
   const node = document.createElement(tag);
   if (cls) node.className = cls;
-  for (const c of children) node.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  for (const c of children) node.append(c instanceof Node ? c : text(c));
   return node;
 }
+const setText = (node, t) => node.replaceChildren(text(t ?? ''));
+const P = (en, th) => pair(en, th);
+const M = code => pair(MESSAGES[code].en, MESSAGES[code].th);
+// Strings and pairs joined into one pair.
+const join = (...parts) => pair(parts.map(x => (isPair(x) ? x.en : String(x))).join(''),
+  parts.map(x => (isPair(x) ? x.th : String(x))).join(''));
+const say = t => setText($('progress'), t);
+
+// ---- TH / EN -------------------------------------------------------------------
+function applyLang(l) {
+  document.documentElement.lang = l;
+  document.documentElement.dataset.lang = l;
+  for (const b of document.querySelectorAll('[data-set-lang]')) b.setAttribute('aria-pressed', String(b.dataset.setLang === l));
+  for (const node of live) {
+    if (node.isConnected) node.data = node.pair[l];
+    else live.delete(node);
+  }
+  const pw = l === 'en' ? 'Password' : 'รหัสผ่าน';
+  $('passwordInput').placeholder = pw;
+  $('passwordInput').setAttribute('aria-label', pw);
+}
+for (const b of document.querySelectorAll('[data-set-lang]')) b.addEventListener('click', () => setLang(b.dataset.setLang));
+onLang(applyLang);
+applyLang(lang());
 
 // ---- the bank list ---------------------------------------------------------
 for (const p of Object.values(PROFILES)) $('bankList').append(el('li', '', `✅ ${p.bank}`));
@@ -51,7 +85,7 @@ async function readInto(entries, passwords) {
   let n = 0;
   for (const entry of entries) {
     n += 1;
-    $('progress').textContent = `Reading ${n} of ${entries.length}: ${entry.name} · กำลังอ่าน`;
+    say(P(`Reading ${n} of ${entries.length}: ${entry.name}`, `กำลังอ่าน ${n} จาก ${entries.length}: ${entry.name}`));
     try {
       const bytes = new Uint8Array(await entry.file.arrayBuffer());
       entry.statement = await readStatement(entry.name, bytes, passwords, null, pdfjs);
@@ -85,7 +119,7 @@ async function run(files) {
     show(entries);
   } finally {
     passwords.length = 0;
-    $('progress').textContent = '';
+    say('');
     busy = false;
   }
 }
@@ -93,12 +127,13 @@ async function run(files) {
 // One box, naming the first locked file. Resolves with the password, or null.
 function askPassword(locked) {
   const [first] = locked;
-  $('lockedName').textContent = `${first.name} is locked · ไฟล์นี้ล็อกอยู่`;
-  $('lockedMore').textContent = locked.length > 1
-    ? `${locked.length - 1} more locked file(s) will be tried with the same password too.` : '';
+  setText($('lockedName'), P(`${first.name} is locked`, `${first.name} ล็อกด้วยรหัสผ่าน`));
+  setText($('lockedMore'), locked.length > 1
+    ? P(`${locked.length - 1} more locked file(s) will be tried with the same password too.`,
+      `จะลองเปิดไฟล์ที่ล็อกอีก ${locked.length - 1} ไฟล์ด้วยรหัสผ่านเดียวกัน`) : '');
   const wrong = locked.some(e => e.error.code === 'wrong-password');
   $('passwordWrong').hidden = !wrong;
-  $('passwordWrong').textContent = `${MESSAGES['wrong-password'].en} · ${MESSAGES['wrong-password'].th}`;
+  setText($('passwordWrong'), M('wrong-password'));
   $('passwordPanel').hidden = false;
   $('passwordInput').value = '';
   $('passwordInput').focus();
@@ -136,9 +171,9 @@ function show(entries) {
   const outs = expressFiles(groups);
   made = [];
   const reviewBytes = new Map();
-  for (const s of statements) {
-    reviewBytes.set(s, writeXlsx(buildWorkbook(s.rows, s.opening, s.closing, s.facts, s.checks, s.profile, s.name, s.fromPhoto)));
-  }
+  // Each file in both languages; the one saved is the page's language at the click.
+  const review = s => buildWorkbook(s.rows, s.opening, s.closing, s.facts, s.checks, s.profile, s.name, s.fromPhoto);
+  for (const s of statements) reviewBytes.set(s, { en: writeXlsx(review(s)), th: writeXlsx(thaiSheets(review(s))) });
   const results = {
     groups: groups.map((g, i) => ({
       bank: g.profile.bank,
@@ -157,7 +192,7 @@ function show(entries) {
       warnings: [...new Map(g.statements.flatMap(s => s.warnings ?? []).map(w => [w.en, w])).values()],
       express: outs[i].fileName ? { fileName: outs[i].fileName, rows: outs[i].n } : { refused: outs[i].refused },
       reviews: g.statements.map(s => reviewFileName(s.name)),
-      expressBytes: outs[i].bytes ?? null,
+      expressBytes: outs[i].bytes ? { en: outs[i].bytes, th: writeXlsx(thaiSheets(outs[i].sheets)) } : null,
       reviewBytes: g.statements.map(s => reviewBytes.get(s)),
     })),
     refusals: entries.filter(e => e.error).map(e => ({ name: e.name, ...e.error })),
@@ -166,19 +201,20 @@ function show(entries) {
 
   const t = STATUS_TEXT[v.banner];
   $('banner').className = `banner s-${v.banner}`;
-  $('banner').append(`${t.icon} ${t.en}`, el('span', 'th', t.th));
+  $('banner').append(text(join(t.icon, ' ', P(t.en, t.th))));
   if (v.refusals.length) {
-    $('banner').append(el('span', 'th', `⛔ ${v.refusals.length} file(s) could not be used - see below · มีไฟล์ที่ใช้ไม่ได้`));
+    $('banner').append(el('span', 'th', P(`⛔ ${v.refusals.length} file(s) could not be used - see below`,
+      `⛔ มี ${v.refusals.length} ไฟล์ที่ใช้ไม่ได้ - ดูด้านล่าง`)));
   }
 
   const fileOf = new Map(entries.map(e => [e.name, e.file]));
   for (const r of v.refusals) {
     const card = el('div', 'card refusal',
-      el('h3', '', `⛔ ${r.name}`), el('p', '', r.en), el('p', 'sub', r.th),
-      r.detail ? el('p', 'detail', r.detail) : '');
+      el('h3', '', `⛔ ${r.name}`), el('p', '', P(r.en, r.th)),
+      r.detail ? el('p', 'detail', pair(r.detail)) : '');
     if (r.code === 'no-text' && fileOf.has(r.name)) {
       // A scan: its pages are pictures, so read them the way photos are read.
-      const b = el('button', 'btn', 'Read it as photos · อ่านเป็นรูปถ่าย');
+      const b = el('button', 'btn', P('Read it as photos', 'อ่านเป็นรูปถ่าย'));
       b.type = 'button';
       b.addEventListener('click', async () => {
         const { picturesFromPdf } = await import('./photo/ocr.js');
@@ -196,41 +232,49 @@ function show(entries) {
 function accountCard(a, g) {
   const t = STATUS_TEXT[a.status];
   const card = el('div', 'card',
-    el('h3', '', `${a.bank} · ${a.account}`),
-    el('p', `status s-${a.status}`, `${t.icon} ${t.en} · ${t.th}`));
-  if (a.untested) card.append(el('p', 'caveat', `⚠ ${UNTESTED_TEXT.en} · ${UNTESTED_TEXT.th}`));
-  if (a.photo) card.append(el('p', 'caveat', `📷 ${PHOTO_TEXT.en} · ${PHOTO_TEXT.th}`));
-  for (const w of g.warnings ?? []) card.append(el('p', 'caveat', `⚠ ${w.en} · ${w.th}`));
+    el('h3', '', join(pair(a.bank), ' · ', pair(a.account))),
+    el('p', `status s-${a.status}`, join(t.icon, ' ', P(t.en, t.th))));
+  if (a.untested) card.append(el('p', 'caveat', join('⚠ ', P(UNTESTED_TEXT.en, UNTESTED_TEXT.th))));
+  if (a.photo) card.append(el('p', 'caveat', join('📷 ', P(PHOTO_TEXT.en, PHOTO_TEXT.th))));
+  for (const w of g.warnings ?? []) card.append(el('p', 'caveat', join('⚠ ', P(w.en, w.th))));
 
   const rows = a.statements.map(s => el('tr', '',
     el('td', '', `${STATUS_TEXT[s.status].icon} ${s.name}`),
-    el('td', '', s.period),
+    el('td', '', pair(s.period)),
     el('td', 'num', s.rows),
-    el('td', '', s.leftOut ? `LEFT OUT - ${s.leftOut}`
-      : s.partial ? `🟠 ${PARTIAL_TEXT.en(s.partial)} · ${PARTIAL_TEXT.th(s.partial)}`
-      : s.failed.length ? s.failed.map(([label, , detail]) => `${label}: ${detail}`).join('; ') : 'OK')));
+    el('td', '', s.leftOut ? join(P('LEFT OUT - ', 'ตัดออก - '), pair(s.leftOut))
+      : s.partial ? join('🟠 ', P(PARTIAL_TEXT.en(s.partial), PARTIAL_TEXT.th(s.partial)))
+      : s.failed.length ? P(s.failed.map(([label, , detail]) => `${label}: ${detail}`).join('; '),
+        s.failed.map(([label, , detail]) => `${thai(label)}: ${thai(detail)}`).join('; '))
+      : P('OK', 'ผ่าน'))));
   card.append(el('div', 'table-wrap', el('table', '',
-    el('thead', '', el('tr', '', el('th', '', 'Statement · ใบแจ้งยอด'), el('th', '', 'Period · ช่วงเวลา'),
-      el('th', '', 'Rows · รายการ'), el('th', '', 'Result · ผล'))),
+    el('thead', '', el('tr', '', el('th', '', P('Statement', 'ใบแจ้งยอด')), el('th', '', P('Period', 'งวด')),
+      el('th', '', P('Rows', 'รายการ')), el('th', '', P('Result', 'ผล')))),
     el('tbody', '', ...rows))));
 
   if (a.checks.length) {
-    card.append(el('ul', 'checks', ...a.checks.map(([label, ok, detail]) =>
-      el('li', '', `${ok ? '✔' : '✖'} ${label}${detail && detail !== 'none' ? ` - ${detail}` : ''}`))));
+    card.append(el('ul', 'checks', ...a.checks.map(([label, ok, detail]) => {
+      const more = detail && detail !== 'none';
+      return el('li', '', P(`${ok ? '✔' : '✖'} ${label}${more ? ` - ${detail}` : ''}`,
+        `${ok ? '✔' : '✖'} ${thai(label)}${more ? ` - ${thai(detail)}` : ''}`));
+    })));
   }
 
   const dl = el('div', 'dl');
   if (a.express?.fileName) {
     dl.append(downloadButton(a.express.fileName, g.expressBytes, 'btn primary',
-      `⬇ Express file · ไฟล์ Express (${a.express.rows} rows)`));
+      P(`⬇ Express file (${a.express.rows} rows)`, `⬇ ไฟล์ Express (${a.express.rows} รายการ)`)));
   } else {
-    dl.append(el('p', 'bad', `No Express file for this account: ${a.express.refused} · ไม่มีไฟล์ Express`));
+    dl.append(el('p', 'bad', P(`No Express file for this account: ${a.express.refused}`,
+      `บัญชีนี้ไม่มีไฟล์ Express: ${thai(a.express.refused)}`)));
   }
-  a.reviews.forEach((name, i) => dl.append(downloadButton(name, g.reviewBytes[i], 'btn', `⬇ Review: ${name}`)));
+  a.reviews.forEach((name, i) => dl.append(downloadButton(name, g.reviewBytes[i], 'btn',
+    P(`⬇ Review: ${name}`, `⬇ ไฟล์ตรวจสอบ: ${name}`))));
   card.append(dl);
   if (a.express?.fileName) {
-    card.append(el('p', 'steps', el('b', '', 'Before importing · ก่อนนำเข้า: '),
-      '1. fill every YELLOW cell (DOCNUM, BNKACC) · กรอกช่องสีเหลือง  2. delete columns G and H (ถอน, ฝาก) · ลบคอลัมน์ G และ H'));
+    card.append(el('p', 'steps', el('b', '', P('Before importing: ', 'ก่อนนำเข้า: ')),
+      P('1. fill every YELLOW cell (DOCNUM, BNKACC)  2. delete columns G and H (ถอน, ฝาก)',
+        '1. กรอกทุกช่องสีเหลือง (DOCNUM, BNKACC)  2. ลบคอลัมน์ G และ H (ถอน, ฝาก)')));
   }
   return card;
 }
@@ -249,7 +293,7 @@ function saveBytes(fileName, bytes, type) {
 function downloadButton(fileName, bytes, cls, label) {
   const b = el('button', cls, label);
   b.type = 'button';
-  b.addEventListener('click', () => saveBytes(fileName, bytes, XLSX));
+  b.addEventListener('click', () => saveBytes(fileName, bytes[lang()] ?? bytes.en, XLSX));
   return b;
 }
 
@@ -265,16 +309,16 @@ let relightTimer = null;
 $('picturePicker').addEventListener('change', async e => {
   const files = [...e.target.files];
   e.target.value = '';
-  if (busy) return pictureError('⛔ Still working - choose the pictures again when it finishes. · กำลังทำงานอยู่');
+  if (busy) return pictureError(P('⛔ Still working - choose the pictures again when it finishes.', '⛔ กำลังทำงานอยู่ - เลือกรูปใหม่อีกครั้งเมื่อเสร็จ'));
   await addPictures(files);
 });
 $('pictureClear').addEventListener('click', clearPictures);
 // a different reader: the tables read before no longer stand
 $('picturePassbook').addEventListener('change', () => { pictureTables = null; pictureError(''); clearResults(); drawPictures(); });
 
-function pictureError(text) {
-  $('pictureError').hidden = !text;
-  $('pictureError').textContent = text || '';
+function pictureError(t) {
+  $('pictureError').hidden = !t;
+  setText($('pictureError'), t || '');
 }
 
 async function addPictures(files) {
@@ -284,21 +328,22 @@ async function addPictures(files) {
     if (/pdf/i.test(file.type) || /\.pdf$/i.test(file.name)) {
       try {
         const { picturesFromPdf } = await import('./photo/ocr.js');
-        $('progress').textContent = `Opening ${file.name} · กำลังเปิดไฟล์`;
+        say(P(`Opening ${file.name}`, `กำลังเปิด ${file.name}`));
         const pages = await picturesFromPdf(new Uint8Array(await file.arrayBuffer()), pdfjs);
         pages.forEach((f, i) => {
           if (pictures.length >= MAX_PHOTOS) { tooMany++; return; }
-          pictures.push({ file: f, name: `${file.name} - page ${i + 1}`, thumb: URL.createObjectURL(f) });
+          pictures.push({ file: f, name: `${file.name} #${i + 1}`, thumb: URL.createObjectURL(f) });
         });
       } catch {
-        pictureError(`⛔ ${file.name}: ${MESSAGES['not-pdf'].en} · ${MESSAGES['not-pdf'].th}`);
+        pictureError(join(`⛔ ${file.name}: `, M('not-pdf')));
       } finally {
-        $('progress').textContent = '';
+        say('');
       }
     } else if (pictures.length >= MAX_PHOTOS) tooMany++;
     else pictures.push({ file, name: file.name, thumb: URL.createObjectURL(file) });
   }
-  if (tooMany) pictureError(`⛔ ${tooMany} picture(s) not added: at most ${MAX_PHOTOS} at a time · ไม่ได้เพิ่ม ${tooMany} รูป`);
+  if (tooMany) pictureError(P(`⛔ ${tooMany} picture(s) not added: at most ${MAX_PHOTOS} at a time`,
+    `⛔ ไม่ได้เพิ่ม ${tooMany} รูป: เพิ่มได้ครั้งละไม่เกิน ${MAX_PHOTOS} รูป`));
   pictureTables = null;
   clearResults();
   drawPictures();
@@ -335,10 +380,10 @@ function drawPictures() {
     };
     const drop = el('button', 'btn small', '✕');
     drop.type = 'button';
-    drop.setAttribute('aria-label', `remove ${p.name}`);
+    drop.setAttribute('aria-label', pick(P(`remove ${p.name}`, `ลบ ${p.name}`)));
     drop.addEventListener('click', () => { URL.revokeObjectURL(p.thumb); pictures.splice(i, 1); pictureTables = null; clearResults(); drawPictures(); });
     return el('li', '', img, el('span', 'name', `${i + 1}. ${p.name}`),
-      move('◀', i - 1, 'move earlier'), move('▶', i + 1, 'move later'), drop);
+      move('◀', i - 1, pick(P('move earlier', 'เลื่อนไปก่อน'))), move('▶', i + 1, pick(P('move later', 'เลื่อนไปหลัง'))), drop);
   }));
   drawPictureTables();
 }
@@ -352,11 +397,11 @@ function drawPictureTables() {
     const box = el('div', 'picture-table');
     box.append(el('h4', '', `${k + 1}. ${t.name}`));
     pictureMarks[k] = [];
-    if (t.error) { box.append(el('p', 'bad', `⛔ ${t.error}`)); return box; }
+    if (t.error) { box.append(el('p', 'bad', join('⛔ ', pair(t.error)))); return box; }
     const table = el('table', 'preview');
     t.rows.forEach((row, r) => {
       const tr = el('tr', '');
-      const light = el(r === 0 ? 'th' : 'td', 'light', r === 0 ? 'Light · ไฟ' : '');
+      const light = el(r === 0 ? 'th' : 'td', 'light', r === 0 ? P('Light', 'ไฟ') : '');
       tr.append(light);
       row.forEach((cellText, c) => {
         const td = el(r === 0 ? 'th' : 'td', '');
@@ -366,7 +411,7 @@ function drawPictureTables() {
         td.addEventListener('input', () => { t.rows[r][c] = td.textContent.trim(); relightSoon(); });
         tr.append(td);
       });
-      const why = el(r === 0 ? 'th' : 'td', 'why', r === 0 ? 'Why · เหตุผล' : '');
+      const why = el(r === 0 ? 'th' : 'td', 'why', r === 0 ? P('Why', 'เหตุผล') : '');
       tr.append(why);
       pictureMarks[k][r] = { tr, light, why };
       table.append(tr);
@@ -377,7 +422,7 @@ function drawPictureTables() {
   relight();
 }
 
-const LIGHT_WORD = { green: 'Green · เขียว', yellow: 'Yellow · เหลือง', red: 'Red · แดง', none: 'not a line · ไม่ใช่รายการ' };
+const LIGHT_WORD = { green: P('Green', 'เขียว'), yellow: P('Yellow', 'เหลือง'), red: P('Red', 'แดง'), none: P('not a line', 'ไม่ใช่รายการ') };
 // A change after converting: the Express results shown were made from the old cells.
 const relightSoon = () => { clearResults(); clearTimeout(relightTimer); relightTimer = setTimeout(relight, 250); };
 for (const id of ['pictureOpening', 'pictureClosing']) $(id).addEventListener('input', relightSoon);
@@ -393,21 +438,24 @@ async function relight() {
   } catch (e) {
     if (e.code !== 'bad-typed') throw e;
     pictureLit = null;
-    pictureError(`⛔ ${MESSAGES['bad-typed'].en} · ${MESSAGES['bad-typed'].th}`);
+    pictureError(join('⛔ ', M('bad-typed')));
   }
   const bar = $('pictureLight');
-  $('pictureWarnings').replaceChildren(...(pictureLit?.warnings ?? []).map(w => el('p', 'caveat', `⚠ ${w.en} · ${w.th}`)));
+  $('pictureWarnings').replaceChildren(...(pictureLit?.warnings ?? []).map(w => el('p', 'caveat', join('⚠ ', P(w.en, w.th)))));
   if (!pictureLit) {
     bar.className = 'lightbar red';
-    bar.replaceChildren(el('span', '', 'Fix the typed balance to see the lights · แก้ยอดที่พิมพ์เพื่อดูไฟ'));
+    bar.replaceChildren(el('span', '', P('Fix the typed balance to see the lights', 'แก้ยอดที่พิมพ์ไว้ให้ถูกรูปแบบ แล้วสีไฟจะแสดง')));
   } else {
     const { light, headline, counts } = pictureLit.set;
     const dot = el('span', `dot ${light}`);
     bar.className = `lightbar ${light}`;
-    bar.replaceChildren(el('span', '', dot, ` ${LIGHT_WORD[light]}: ${headline}`),
-      el('span', 'counts', `${counts.green + counts.yellow + counts.red} lines · ${counts.green} green · ${counts.yellow} yellow · ${counts.red} red`));
+    const total = counts.green + counts.yellow + counts.red;
+    bar.replaceChildren(el('span', '', dot, join(' ', LIGHT_WORD[light], ': ', pair(headline))),
+      el('span', 'counts', P(`${total} lines · ${counts.green} green · ${counts.yellow} yellow · ${counts.red} red`,
+        `${total} บรรทัด · เขียว ${counts.green} · เหลือง ${counts.yellow} · แดง ${counts.red}`)));
     $('pictureChecks').replaceChildren(...pictureLit.checks.map(c =>
-      el('li', c.passed ? '' : 'fail', `${c.passed ? '✔' : '✘'} ${c.label}${c.detail ? ` - ${c.detail}` : ''}`)));
+      el('li', c.passed ? '' : 'fail', P(`${c.passed ? '✔' : '✘'} ${c.label}${c.detail ? ` - ${c.detail}` : ''}`,
+        `${c.passed ? '✔' : '✘'} ${thai(c.label)}${c.detail ? ` - ${thai(c.detail)}` : ''}`))));
   }
   pictureMarks.forEach((marks, k) => marks.forEach((m, r) => {
     if (r === 0) return;
@@ -415,9 +463,9 @@ async function relight() {
     m.tr.className = l ? l.light : '';
     const dot = el('span', `dot ${l?.light ?? 'none'}`);
     dot.setAttribute('role', 'img');
-    dot.setAttribute('aria-label', l ? LIGHT_WORD[l.light] : 'not checked');
+    dot.setAttribute('aria-label', l ? pick(LIGHT_WORD[l.light]) : pick(P('not checked', 'ยังไม่ได้ตรวจ')));
     m.light.replaceChildren(dot);
-    m.why.textContent = l?.why ?? '';
+    setText(m.why, l?.why ? pair(l.why) : '');
   }));
 }
 
@@ -437,22 +485,22 @@ $('pictureGo').addEventListener('click', async () => {
       if (!read) { pictureTables = null; drawPictures(); return; }
       tables.push(...read);
     } else for (const [i, p] of pictures.entries()) {
-      $('progress').textContent = `Reading picture ${i + 1} of ${pictures.length} · กำลังอ่านรูปที่ ${i + 1} จาก ${pictures.length}`;
+      say(P(`Reading picture ${i + 1} of ${pictures.length}`, `กำลังอ่านรูปที่ ${i + 1} จาก ${pictures.length}`));
       try {
-        const { size, ocrWords } = await readPhoto(p.file, s => { $('progress').textContent = s; });
+        const { size, ocrWords } = await readPhoto(p.file, s => say(both(s)));
         const t = pictureTable(ocrWords, size);
         tables.push(t.ok ? { name: p.name, ...t } : { name: p.name, error: t.reason, rows: [], other: [] });
       } catch (e) {
         const m = MESSAGES[e instanceof PhotoError && MESSAGES[e.code] ? e.code : 'not-image'];
-        tables.push({ name: p.name, error: `${m.en} · ${m.th}`, rows: [], other: [] });
+        tables.push({ name: p.name, error: m.en, rows: [], other: [] });   // shown in Thai by lang.js
       }
     }
     pictureTables = tables;
   } catch (e) {
     console.error(e);
-    pictureError(`⛔ ${MESSAGES.refused.en} · ${MESSAGES.refused.th}`);
+    pictureError(join('⛔ ', M('refused')));
   } finally {
-    $('progress').textContent = '';
+    say('');
     $('picturePanel').inert = false;
     $('picturePicker').disabled = false;
     busy = false;
@@ -470,34 +518,39 @@ async function readPassbookPictures() {
   const { passbookTables } = await import('./picture/passbook.js');
   const grey = [];
   for (const [i, p] of pictures.entries()) {
-    $('progress').textContent = `Opening page ${i + 1} of ${pictures.length} · กำลังเปิดหน้า`;
+    say(P(`Opening page ${i + 1} of ${pictures.length}`, `กำลังเปิดหน้า ${i + 1} จาก ${pictures.length}`));
     let canvas;
     try {
       canvas = await decodeUpright(p.file);
     } catch {
-      pictureError(`⛔ ${p.name}: ${MESSAGES['not-image'].en} · ${MESSAGES['not-image'].th}`);
+      pictureError(join(`⛔ ${p.name}: `, M('not-image')));
       return null;
     }
     grey.push(greyFromRGBA(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height));
   }
   const lines = await readPassbook(grey, KTB_PASSBOOK, ({ step, page, pages }) => {
-    $('progress').textContent = `${step === 'reread' ? 'Reading again with what it learned' : 'Reading'} page ${page} of ${pages} · กำลังอ่านหน้า ${page}/${pages}`;
+    say(readStep(step, page, pages));
   });
   if (!lines.some(l => l.balance)) {
-    pictureError(`⛔ ${MESSAGES['not-passbook'].en} · ${MESSAGES['not-passbook'].th}`);
+    pictureError(join('⛔ ', M('not-passbook')));
     return null;
   }
   return passbookTables(lines, pictures.map(p => p.name));
 }
 
+// The passbook reader reads every page, then once more with the dots it learned.
+const readStep = (step, page, pages) => (step === 'reread'
+  ? P(`Reading again with what it learned: page ${page} of ${pages}`, `กำลังอ่านซ้ำด้วยรูปแบบที่เรียนรู้: หน้า ${page} จาก ${pages}`)
+  : P(`Reading page ${page} of ${pages}`, `กำลังอ่านหน้า ${page} จาก ${pages}`));
+
 $('pictureDownload').addEventListener('click', async () => {
   if (!pictureTables) return;
   const { pictureWorkbook } = await import('./picture/excel.js');
-  if (!pictureTables.some(t => !t.error)) return pictureError('⛔ No table was read from these pictures. · ไม่มีตารางที่อ่านได้');
+  if (!pictureTables.some(t => !t.error)) return pictureError(P('⛔ No table was read from these pictures.', '⛔ ไม่มีตารางที่อ่านได้จากรูปชุดนี้'));
   await relight();          // the lights saved are the ones for the cells as they stand
   const stamp = new Date().toISOString().slice(0, 10);
   saveBytes(`${stamp} statement pictures.xlsx`, pictureWorkbook(pictureTables, pictureLit,
-    { openingText: $('pictureOpening').value.trim(), closingText: $('pictureClosing').value.trim() }), XLSX);
+    { openingText: $('pictureOpening').value.trim(), closingText: $('pictureClosing').value.trim() }, lang()), XLSX);
 });
 
 $('pictureAccount').addEventListener('input', () => clearResults());
@@ -509,14 +562,13 @@ $('pictureExpress').addEventListener('click', async () => {
   if (busy || !pictureTables) return;
   const unread = pictureTables.map((t, k) => (t.error || !t.rows?.length ? `${k + 1}. ${t.name}` : null)).filter(Boolean);
   if (unread.length) {
-    return pictureError(`⛔ Not read: ${unread.join(', ')}. Remove or retake ${unread.length === 1 ? 'it' : 'them'} first, so no page is missing from Express. · ` +
-      'มีรูปที่อ่านไม่ได้ ลบหรือถ่ายใหม่ก่อน เพื่อไม่ให้ขาดหน้า');
+    return pictureError(P(`⛔ Not read: ${unread.join(', ')}. Remove or retake ${unread.length === 1 ? 'it' : 'them'} first, so no page is missing from Express.`,
+      `⛔ อ่านไม่ได้: ${unread.join(', ')} ลบออกหรือถ่ายใหม่ก่อน เพื่อไม่ให้ไฟล์ Express ขาดหน้าใดไป`));
   }
   // Without a balance typed from the paper, a reading whose minus signs were
   // all lost is a mirror image the chain cannot see (as the Excel card).
   if (!$('pictureOpening').value.trim() && !$('pictureClosing').value.trim()) {
-    const m = MESSAGES['need-typed'];
-    return pictureError(`⛔ ${m.en} · ${m.th}`);
+    return pictureError(join('⛔ ', M('need-typed')));
   }
   busy = true;
   pictureError('');
@@ -532,8 +584,7 @@ $('pictureExpress').addEventListener('click', async () => {
     $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (e) {
     console.error(e);
-    const m = MESSAGES[e.code === 'bad-typed' ? 'bad-typed' : 'refused'];
-    pictureError(`⛔ ${m.en} · ${m.th}`);
+    pictureError(join('⛔ ', M(e.code === 'bad-typed' ? 'bad-typed' : 'refused')));
   } finally {
     busy = false;
   }
@@ -565,9 +616,9 @@ function clearPhotos() {
   drawPhotos();
 }
 
-function photoError(text) {
-  $('photoError').hidden = !text;
-  $('photoError').textContent = text || '';
+function photoError(t) {
+  $('photoError').hidden = !t;
+  setText($('photoError'), t || '');
 }
 
 function drawPhotos() {
@@ -592,10 +643,10 @@ function drawPhotos() {
     };
     const drop = el('button', 'btn small', '✕');
     drop.type = 'button';
-    drop.setAttribute('aria-label', `remove ${p.name}`);
+    drop.setAttribute('aria-label', pick(P(`remove ${p.name}`, `ลบ ${p.name}`)));
     drop.addEventListener('click', () => { URL.revokeObjectURL(p.thumb); photos.splice(i, 1); photoPdf = null; drawPhotos(); });
     return el('li', '', img, el('span', 'name', `${i + 1}. ${p.name}`),
-      move('◀', i - 1, 'move earlier'), move('▶', i + 1, 'move later'), drop);
+      move('◀', i - 1, pick(P('move earlier', 'เลื่อนไปก่อน'))), move('▶', i + 1, pick(P('move later', 'เลื่อนไปหลัง'))), drop);
   }));
 }
 
@@ -608,39 +659,31 @@ $('photoGo').addEventListener('click', async () => {
     const { readPhoto } = await import('./photo/ocr.js');
     const pages = [];
     for (const [i, p] of photos.entries()) {
-      $('progress').textContent = `Reading photo ${i + 1} of ${photos.length}: ${p.name} · กำลังอ่านรูป`;
+      say(P(`Reading photo ${i + 1} of ${photos.length}: ${p.name}`, `กำลังอ่านรูปที่ ${i + 1} จาก ${photos.length}: ${p.name}`));
       let read;
       try {
-        read = await readPhoto(p.file, text => { $('progress').textContent = text; });
+        read = await readPhoto(p.file, s => say(both(s)));
       } catch (e) {
-        const m = MESSAGES[e.code] ?? MESSAGES.refused;
-        return photoError(`⛔ ${p.name}: ${m.en} · ${m.th}`);
+        return photoError(join(`⛔ ${p.name}: `, M(MESSAGES[e.code] ? e.code : 'refused')));
       }
       const page = photoPage(read.ocrWords, read.size);
-      if (!page.ok) {
-        const m = MESSAGES[page.code];
-        return photoError(`⛔ ${p.name}: ${m.en} · ${m.th}`);
-      }
+      if (!page.ok) return photoError(join(`⛔ ${p.name}: `, M(page.code)));
       const { width, height } = pageSizeFor(page.bank);
-      if (pages.length && pages[0].bank !== page.bank) {
-        const m = MESSAGES['mixed-banks'];
-        return photoError(`⛔ ${p.name}: ${m.en} · ${m.th}`);
-      }
+      if (pages.length && pages[0].bank !== page.bank) return photoError(join(`⛔ ${p.name}: `, M('mixed-banks')));
       pages.push({ jpeg: read.jpeg, width, height, words: page.words, bank: page.bank, summary: !!page.summary,
         imageMatrix: imageMatrix(page.placement, read.size.w, read.size.h, height) });
     }
     const summaryPages = pages.flatMap((pg, i) => pg.summary ? [i] : []);
     if (summaryPages.length === pages.length) {
-      const m = MESSAGES['summary-only'];
-      return photoError(`⛔ ${m.en} · ${m.th}`);
+      return photoError(join('⛔ ', M('summary-only')));
     }
     photoPdf = buildReadablePdf(pages, { bank: pages[0].bank, summaryPages });
     drawPhotos();
   } catch (e) {
     console.error(e);
-    photoError(`⛔ ${MESSAGES.refused.en} · ${MESSAGES.refused.th}`);
+    photoError(join('⛔ ', M('refused')));
   } finally {
-    $('progress').textContent = '';
+    say('');
     busy = false;
   }
 });
@@ -665,9 +708,9 @@ $('passbookPicker').addEventListener('change', async e => {
 });
 $('passbookClear').addEventListener('click', clearPassbook);
 
-function passbookError(text) {
-  $('passbookError').hidden = !text;
-  $('passbookError').textContent = text || '';
+function passbookError(t) {
+  $('passbookError').hidden = !t;
+  setText($('passbookError'), t || '');
 }
 
 async function addPassbookFiles(files) {
@@ -677,13 +720,13 @@ async function addPassbookFiles(files) {
     if (/pdf/i.test(file.type) || /\.pdf$/i.test(file.name)) {
       try {
         const { picturesFromPdf } = await import('./photo/ocr.js');
-        $('progress').textContent = `Opening ${file.name} · กำลังเปิดไฟล์`;
+        say(P(`Opening ${file.name}`, `กำลังเปิด ${file.name}`));
         const pages = await picturesFromPdf(new Uint8Array(await file.arrayBuffer()), pdfjs);
-        pages.forEach((f, i) => passbookPages.push({ file: f, name: `${file.name} - page ${i + 1}`, thumb: URL.createObjectURL(f) }));
+        pages.forEach((f, i) => passbookPages.push({ file: f, name: `${file.name} #${i + 1}`, thumb: URL.createObjectURL(f) }));
       } catch {
-        passbookError(`⛔ ${file.name}: ${MESSAGES['not-pdf'].en} · ${MESSAGES['not-pdf'].th}`);
+        passbookError(join(`⛔ ${file.name}: `, M('not-pdf')));
       } finally {
-        $('progress').textContent = '';
+        say('');
       }
     } else {
       passbookPages.push({ file, name: file.name, thumb: URL.createObjectURL(file) });
@@ -717,10 +760,10 @@ function drawPassbook() {
     };
     const drop = el('button', 'btn small', '✕');
     drop.type = 'button';
-    drop.setAttribute('aria-label', `remove ${p.name}`);
+    drop.setAttribute('aria-label', pick(P(`remove ${p.name}`, `ลบ ${p.name}`)));
     drop.addEventListener('click', () => { URL.revokeObjectURL(p.thumb); passbookPages.splice(i, 1); drawPassbook(); });
     return el('li', '', img, el('span', 'name', `${i + 1}. ${p.name}`),
-      move('◀', i - 1, 'move earlier'), move('▶', i + 1, 'move later'), drop);
+      move('◀', i - 1, pick(P('move earlier', 'เลื่อนไปก่อน'))), move('▶', i + 1, pick(P('move later', 'เลื่อนไปหลัง'))), drop);
   }));
 }
 
@@ -739,23 +782,22 @@ $('passbookGo').addEventListener('click', async () => {
     const { passbookStatement } = await import('./passbook/statement.js');
     const pictures = [];
     for (const [i, p] of passbookPages.entries()) {
-      $('progress').textContent = `Opening page ${i + 1} of ${passbookPages.length} · กำลังเปิดหน้า`;
+      say(P(`Opening page ${i + 1} of ${passbookPages.length}`, `กำลังเปิดหน้า ${i + 1} จาก ${passbookPages.length}`));
       let canvas;
       try {
         canvas = await decodeUpright(p.file);
       } catch {
-        return passbookError(`⛔ ${p.name}: ${MESSAGES['not-image'].en} · ${MESSAGES['not-image'].th}`);
+        return passbookError(join(`⛔ ${p.name}: `, M('not-image')));
       }
       const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
       pictures.push(greyFromRGBA(data, canvas.width, canvas.height));
     }
     const lines = await readPassbook(pictures, KTB_PASSBOOK, ({ step, page, pages }) => {
-      $('progress').textContent = `${step === 'reread' ? 'Reading again with what it learned' : 'Reading'} page ${page} of ${pages} · กำลังอ่านหน้า ${page}/${pages}`;
+      say(readStep(step, page, pages));
     });
     pictures.length = 0;
     if (!lines.some(l => l.balance)) {
-      const m = MESSAGES['not-passbook'];
-      return passbookError(`⛔ ${m.en} · ${m.th}`);
+      return passbookError(join('⛔ ', M('not-passbook')));
     }
     const statement = passbookStatement('Passbook.pdf', lines, KTB_PASSBOOK,
       { account: $('passbookAccount').value.replace(/\D/g, '') || null });
@@ -763,9 +805,9 @@ $('passbookGo').addEventListener('click', async () => {
     $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (e) {
     console.error(e);
-    passbookError(`⛔ ${MESSAGES.refused.en} · ${MESSAGES.refused.th}`);
+    passbookError(join('⛔ ', M('refused')));
   } finally {
-    $('progress').textContent = '';
+    say('');
     $('passbookPanel').inert = false;
     $('passbookPicker').disabled = false;
     busy = false;
@@ -782,14 +824,14 @@ let tableMap = {};                          // role -> column index
 $('tablePicker').addEventListener('change', async e => {
   const files = [...e.target.files];
   e.target.value = '';
-  if (busy) return tableError('⛔ Still working - choose the files again when it finishes. · กำลังทำงานอยู่ เลือกไฟล์ใหม่อีกครั้งเมื่อเสร็จ');
+  if (busy) return tableError(P('⛔ Still working - choose the files again when it finishes.', '⛔ กำลังทำงานอยู่ - เลือกไฟล์ใหม่อีกครั้งเมื่อเสร็จ'));
   await addTables(files);
 });
 $('tableClear').addEventListener('click', clearTables);
 
-function tableError(text) {
-  $('tableError').hidden = !text;
-  $('tableError').textContent = text || '';
+function tableError(t) {
+  $('tableError').hidden = !t;
+  setText($('tableError'), t || '');
 }
 
 async function addTables(files) {
@@ -814,20 +856,18 @@ async function addTables(files) {
           // the same page picked twice would be read twice (G8 Excel review B2)
           const key = JSON.stringify(sheet.rows);
           if (tableFiles.some(f => f.key === key)) {
-            const m = MESSAGES['same-file'];
-            errors.push(`⛔ ${name}: ${m.en} · ${m.th}`);
+            errors.push(join(`⛔ ${name}: `, M('same-file')));
             continue;
           }
           tableFiles.push({ name, rows: sheet.rows, key });
         }
       } catch (e) {
-        const m = MESSAGES[['old-xls', 'too-big', 'date-1904'].includes(e.code) ? e.code : 'not-table'];
-        errors.push(`⛔ ${file.name}: ${m.en} · ${m.th}`);
+        errors.push(join(`⛔ ${file.name}: `, M(['old-xls', 'too-big', 'date-1904', 'own-picture-file'].includes(e.code) ? e.code : 'not-table')));
       }
     }
-    if (tooMany) errors.push(`⛔ ${tooMany} page(s) not added: at most ${MAX_PHOTOS} pages at a time · ` +
-      `ไม่ได้เพิ่ม ${tooMany} หน้า: ได้ครั้งละไม่เกิน ${MAX_PHOTOS} หน้า`);
-    tableError(errors.join('\n'));
+    if (tooMany) errors.push(P(`⛔ ${tooMany} page(s) not added: at most ${MAX_PHOTOS} pages at a time`,
+      `⛔ ไม่ได้เพิ่ม ${tooMany} หน้า: เพิ่มได้ครั้งละไม่เกิน ${MAX_PHOTOS} หน้า`));
+    tableError(errors.length ? join(...errors.flatMap((e, i) => (i ? ['\n', e] : [e]))) : '');
     if (tableFiles.length && !Object.keys(tableMap).length) tableMap = findColumns(tableFiles[0].rows).map;
   } finally {
     busy = false;
@@ -868,10 +908,10 @@ async function drawTables() {
     };
     const drop = el('button', 'btn small', '✕');
     drop.type = 'button';
-    drop.setAttribute('aria-label', `remove ${f.name}`);
+    drop.setAttribute('aria-label', pick(P(`remove ${f.name}`, `ลบ ${f.name}`)));
     drop.addEventListener('click', () => { tableFiles.splice(i, 1); if (i === 0) tableMap = tableFiles.length ? findColumns(tableFiles[0].rows).map : {}; clearResults(); drawTables(); });
-    return el('li', '', el('span', 'name', `${i + 1}. ${f.name} (${f.rows.length} rows)`),
-      move('◀', i - 1, 'move earlier'), move('▶', i + 1, 'move later'), drop);
+    return el('li', '', el('span', 'name', P(`${i + 1}. ${f.name} (${f.rows.length} rows)`, `${i + 1}. ${f.name} (${f.rows.length} แถว)`)),
+      move('◀', i - 1, pick(P('move earlier', 'เลื่อนไปก่อน'))), move('▶', i + 1, pick(P('move later', 'เลื่อนไปหลัง'))), drop);
   }));
 
   // The first file shows what each column holds.
@@ -881,7 +921,7 @@ async function drawTables() {
   const heading = c => String((header >= 0 ? rows[header][c] : '') ?? '').trim();
   $('tableMap').replaceChildren(...ROLES.map(role => {
     const select = el('select', '');
-    select.append(el('option', '', '— none · ไม่มี —'));
+    select.append(el('option', '', P('— none —', '— ไม่มี —')));
     select.options[0].value = '';
     for (let c = 0; c < width; c++) {
       const o = el('option', '', `${colLetter(c)}${heading(c) ? ` · ${heading(c)}` : ''}`);
@@ -894,12 +934,12 @@ async function drawTables() {
       clearResults();
       drawTables();
     });
-    return el('label', '', ROLE_TEXT[role], select);
+    return el('label', '', both(ROLE_TEXT[role]), select);
   }));
-  const roleAt = c => ROLES.filter(r => tableMap[r] === c).map(r => ROLE_TEXT[r].split(' · ')[0]).join(', ');
+  const roleAt = c => join(...ROLES.filter(r => tableMap[r] === c).map((r, i) => join(i ? ', ' : '', both(ROLE_TEXT[r]))));
   const shown = rows.slice(Math.max(0, header), Math.max(0, header) + 7);
   $('tablePreview').replaceChildren(
-    el('thead', '', el('tr', '', ...Array.from({ length: width }, (_, c) => el('th', '', colLetter(c), el('span', 'role', roleAt(c) || ' '))))),
+    el('thead', '', el('tr', '', ...Array.from({ length: width }, (_, c) => el('th', '', colLetter(c), el('span', 'role', roleAt(c).en ? roleAt(c) : ' '))))),
     el('tbody', '', ...shown.map(r => el('tr', '', ...Array.from({ length: width }, (_, c) => el('td', '', String(r[c] ?? '')))))));
 }
 
@@ -909,12 +949,10 @@ $('tableGo').addEventListener('click', async () => {
   // Without a balance typed from the original, a file whose minus signs were
   // all lost would read as a mirror image the chain cannot see (G8 re-review).
   if (!$('tableOpening').value.trim() && !$('tableClosing').value.trim()) {
-    const m = MESSAGES['need-typed'];
-    return tableError(`⛔ ${m.en} · ${m.th}`);
+    return tableError(join('⛔ ', M('need-typed')));
   }
   if (tableMap.balance === undefined || tableMap.date === undefined || !hasAmount) {
-    const m = MESSAGES['no-balance'];
-    return tableError(`⛔ ${m.en} · ${m.th}`);
+    return tableError(join('⛔ ', M('no-balance')));
   }
   busy = true;
   $('tablePanel').inert = true;
@@ -930,15 +968,16 @@ $('tableGo').addEventListener('click', async () => {
       openingText: $('tableOpening').value,
     });
     $('tableSkipped').hidden = !statement.skipped.length;
-    $('tableSkipped').textContent = statement.skipped.length
-      ? `Not read as transactions (${statement.skipped.length}): ${statement.skipped.slice(0, 8).join('; ')}${statement.skipped.length > 8 ? ' …' : ''}`
-      : '';
+    const shownSkips = statement.skipped.slice(0, 8).join('; ') + (statement.skipped.length > 8 ? ' …' : '');
+    setText($('tableSkipped'), statement.skipped.length
+      ? P(`Not read as transactions (${statement.skipped.length}): ${shownSkips}`,
+        `ไม่นับเป็นรายการ (${statement.skipped.length}): ${thai(shownSkips)}`)
+      : '');
     show([{ name, file: null, statement, error: null }]);
     $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (e) {
     console.error(e);
-    const m = MESSAGES[e.code === 'bad-typed' ? 'bad-typed' : 'refused'];
-    tableError(`⛔ ${m.en} · ${m.th}`);
+    tableError(join('⛔ ', M(e.code === 'bad-typed' ? 'bad-typed' : 'refused')));
   } finally {
     $('tablePanel').inert = false;
     $('tablePicker').disabled = false;

@@ -65,9 +65,10 @@ export function pictureLights(tables, { openingText = '', closingText = '', name
   });
   // A doubt the reader had about a date stands while the date reads as it was
   // read; once the person changes the date on screen, it is theirs (G8 N5).
+  const dateIn = (t, i) => String(t?.rows?.[i]?.[t.map?.date] ?? '').trim();
   const doubtsOf = t => (t.rows ?? []).map((r, i) => {
     const d = t.doubts?.[i];
-    return d && String(r[t.map?.date] ?? '').trim() === d.date ? d.note : null;
+    return d && dateIn(t, i) === d.date.trim() ? d.note : null;
   });
   const files = read.map(({ t }, j) => ({
     name: t.name, dayFirst: dayFirstOf[j], doubts: doubtsOf(t),
@@ -114,14 +115,14 @@ export function pictureLights(tables, { openingText = '', closingText = '', name
         why = `${why}; this may be +${shown} with the "+" read as a 4 - the balance agrees with ${shown}; check the paper`;
       }
     }
-    // A passbook date filled in from the lines either side, or the same day
-    // suggested for a date read otherwise: said while the date reads as then.
+    // A passbook date suggested from the lines either side (never filled in):
+    // the same goes for a date read otherwise; said while the date reads as then.
     const hint = read[r.page - 1].t.hints?.[r.line - 1];
-    const dateNow = String(read[r.page - 1].t.rows[r.line - 1]?.[read[r.page - 1].t.map?.date] ?? '').trim();
+    const dateNow = dateIn(read[r.page - 1].t, r.line - 1);
     if (hint && dateNow === hint.date) why = `${why}; ${hint.note}`;
     // An amount not read, between two balances that were: the change is said,
     // never filled in - the line stays held [CO-DECIDED 2026-10-09].
-    if (r.amount === null && r.balance !== null) {
+    if (r.amount === null && r.balance !== null && !(i === 0 && s.facts.opening_derived)) {
       const before = i > 0 ? s.rows[i - 1].balance : s.opening;
       if (before !== null && before !== undefined && r.balance !== before) {
         const d = r.balance - before;
@@ -132,7 +133,7 @@ export function pictureLights(tables, { openingText = '', closingText = '', name
     // only just beat the next-best symbol) keeps a proved line from green.
     // (the engine holds it from Express too: it is a date note on the line)
     const doubt = files[r.page - 1].doubts[r.line - 1];
-    if (doubt && light === 'green') { light = 'yellow'; why = doubt; }
+    if (doubt && light === 'green') { light = 'yellow'; why = why.replace(/^proved by the balance/, doubt); }
     else if (doubt && !why.includes(doubt)) why = `${why}; ${doubt}`;
     counts[light]++;
     rows[k][r.line - 1] = { light, why, at: i };

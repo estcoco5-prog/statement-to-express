@@ -136,3 +136,11 @@ td.num{text-align:right; font-variant-numeric:tabular-nums}
 .photolist .thumb{width:56px; height:72px; object-fit:cover; border-radius:6px; border:1px solid var(--hair)}
 .photolist .name{flex:1 1 160px; overflow-wrap:anywhere}
 #photoDone[hidden],#photoError[hidden]{display:none}
+
+/* TH / EN: one language at a time (src/lang.js sets html[data-lang]). */
+html[data-lang="th"] .l-en, html[data-lang="en"] .l-th{display:none !important}
+.topline{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px 16px}
+.langswitch{display:inline-flex; border:1px solid var(--hair); border-radius:999px; overflow:hidden; background:var(--sheet)}
+.langswitch button{font:inherit; font-size:15px; font-weight:600; border:0; background:transparent; color:var(--ink2); padding:6px 16px; min-height:40px; cursor:pointer}
+.langswitch button[aria-pressed="true"]{background:var(--accent); color:var(--on-accent)}
+.langswitch button:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}

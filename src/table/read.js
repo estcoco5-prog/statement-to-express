@@ -179,6 +179,13 @@ export function readCsv(text) {
 export async function readTableFile(name, bytes) {
   if (/\.xls$/i.test(name)) throw new TableError('old-xls', 'old .xls file');
   if (bytes.length > LIMITS.fileBytes) throw tooBig('bytes');
-  if (/\.(csv|txt)$/i.test(name)) return readCsv(new TextDecoder('utf-8').decode(bytes));
-  return readXlsx(bytes);
+  const sheets = /\.(csv|txt)$/i.test(name) ? await readCsv(new TextDecoder('utf-8').decode(bytes)) : await readXlsx(bytes);
+  // This app's own Picture -> Excel file: what held its lines (a date the
+  // reader was unsure of) is not in the
+  // cells, so checking it again here could send them. It is converted on the
+  // Picture card instead (G8 picture-v2 release review).
+  if (sheets.some(s => s.rows.slice(0, 3).some(r => r.some(c => /^Light · ไฟ$|^ไฟ$|^Read from statement pictures on this computer|^อ่านจากรูปใบแจ้งยอดในเครื่องนี้/.test(String(c ?? '').trim()))))) {
+    throw new TableError('own-picture-file', 'a Picture -> Excel file from this app');
+  }
+  return sheets;
 }

@@ -63,6 +63,10 @@ export const MESSAGES = {
     th: 'เปิดไฟล์นี้เป็นตาราง Excel หรือ CSV ไม่ได้',
     en: 'This file could not be opened as an Excel (.xlsx) or CSV table.',
   },
+  'own-picture-file': {
+    th: 'ไฟล์นี้มาจากช่อง รูป → Excel ของเว็บนี้ ให้กด "แปลงเป็น Express" ที่ช่องนั้นแทน (ไฟล์ไม่ได้เก็บเหตุผลที่บางรายการถูกพักไว้)',
+    en: 'This file came from the Picture → Excel card on this site. Use Convert to Express there instead - the file does not keep why some lines were held.',
+  },
   'old-xls': {
     th: 'ไฟล์ .xls แบบเก่าเปิดไม่ได้ เปิดใน Excel แล้วบันทึกเป็น .xlsx',
     en: 'Old .xls files cannot be opened here. Open it in Excel and save it as .xlsx.',
@@ -119,7 +123,7 @@ export const PARTIAL_TEXT = {
   en: p => `${p.toExpress} proved rows go to Express; ${p.toCheck} row(s) to check by hand` +
     (p.pages.length ? ` on page ${p.pages.join(', ')}` : '') + ' - listed on the "Rows to check" sheet',
   th: p => `${p.toExpress} รายการตรวจแล้วเข้า Express; ${p.toCheck} รายการต้องตรวจเอง` +
-    (p.pages.length ? ` (หน้า ${p.pages.join(', ')})` : '') + ' ดูชีต "Rows to check"',
+    (p.pages.length ? ` (หน้า ${p.pages.join(', ')})` : '') + ' ดูชีต "รายการที่ต้องตรวจ" ในไฟล์ Express',
 };
 
 export const UNTESTED_TEXT = {
