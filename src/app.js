@@ -1070,6 +1070,16 @@ function relayout() {
 const slimTools = document.querySelectorAll('.tools .tool:not(.link)');
 const watch = new MutationObserver(relayout);
 for (const box of Object.keys(BOXES)) watch.observe($(box), { attributes: true, attributeFilter: ['hidden'] });
+// the box title says how many pages it holds
+for (const [list, th, en] of [['pictureList', 'รูป', 'pictures'], ['photoList', 'รูป', 'photos'], ['passbookList', 'หน้า', 'pages'], ['tableList', 'ไฟล์', 'files']]) {
+  const title = $(list).closest('.panel').querySelector('h2');
+  const count = () => {
+    const n = $(list).children.length;
+    if (n) { title.dataset.countTh = `${n} ${th}`; title.dataset.countEn = `${n} ${n === 1 ? en.replace(/s$/, '') : en}`; }
+    else { delete title.dataset.countTh; delete title.dataset.countEn; }
+  };
+  new MutationObserver(count).observe($(list), { childList: true });
+}
 // a slim card opens its own file picker
 for (const tool of slimTools) {
   const open = e => {
