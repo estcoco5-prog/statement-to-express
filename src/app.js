@@ -409,6 +409,7 @@ function clearPictures() {
 function drawPictures() {
   $('picturePanel').hidden = !pictures.length;
   $('pictureResult').hidden = !pictureTables;
+  $('pictureDone').hidden = !pictureTables;
   $('pictureList').replaceChildren(...pictures.map((p, i) => {
     const img = el('img', 'thumb');
     img.src = p.thumb;
@@ -1040,6 +1041,45 @@ $('tableGo').addEventListener('click', async () => {
     busy = false;
   }
 });
+
+// ---- layout D (Co 2026-10-14): with files chosen, the tool cards shrink to a
+// slim row and the box that opens is scrolled into view; its buttons are pinned
+// (styles.css .actions). Nothing here changes what any tool does.
+const BOXES = { picturePanel: 'pictureTool', photoPanel: 'photoTool', passbookPanel: 'passbookTool',
+  tablePanel: 'tableTool', passwordPanel: 'dropzone', results: null };
+const shown = new Set();
+function relayout() {
+  let opened = null;
+  for (const [box, tool] of Object.entries(BOXES)) {
+    const on = !$(box).hidden;
+    if (on && !shown.has(box)) opened = box;
+    if (on) shown.add(box); else shown.delete(box);
+    if (tool) $(tool).classList.toggle('on', on && box !== 'passwordPanel');
+  }
+  document.body.classList.toggle('focus', shown.size > 0);
+  for (const tool of slimTools) {
+    if (shown.size) { tool.tabIndex = 0; tool.setAttribute('role', 'button'); } else { tool.removeAttribute('tabindex'); tool.removeAttribute('role'); }
+  }
+  // a box (or the results) that has just opened is brought up, just under the slim row
+  if (opened) requestAnimationFrame(() => {
+    const tools = document.querySelector('.tools');
+    const top = $(opened).getBoundingClientRect().top + window.scrollY - tools.offsetHeight - 24;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  });
+}
+const slimTools = document.querySelectorAll('.tools .tool:not(.link)');
+const watch = new MutationObserver(relayout);
+for (const box of Object.keys(BOXES)) watch.observe($(box), { attributes: true, attributeFilter: ['hidden'] });
+// a slim card opens its own file picker
+for (const tool of slimTools) {
+  const open = e => {
+    if (!document.body.classList.contains('focus') || e.target.closest('label, input, button, a, .caveat')) return;
+    e.preventDefault();
+    tool.querySelector('input[type=file]')?.click();
+  };
+  tool.addEventListener('click', open);
+  tool.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') open(e); });
+}
 
 // ---- offline + update bar (the Pic-to-PDF pattern) ---------------------------
 if ('serviceWorker' in navigator) {

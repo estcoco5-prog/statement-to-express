@@ -119,10 +119,6 @@
     <ol class="photolist" id="pictureList"></ol>
     <label class="tick" for="picturePassbook"><input type="checkbox" id="picturePassbook">
       <span class="l-en">These are Krungthai passbook pages (dot-printed) - read them with the passbook reader</span><span class="l-th">เป็นหน้าสมุดบัญชีกรุงไทย (พิมพ์แบบจุด) - อ่านด้วยตัวอ่านสมุดบัญชี</span></label>
-    <div class="row">
-      <button type="button" class="btn primary" id="pictureGo"><span class="l-en">Read the tables</span><span class="l-th">อ่านตาราง</span></button>
-      <button type="button" class="btn" id="pictureClear"><span class="l-en">Clear</span><span class="l-th">ล้าง</span></button>
-    </div>
     <p class="bad" id="pictureError" style="white-space: pre-line" hidden></p>
     <div id="pictureResult" hidden>
       <div class="lightbar" id="pictureLight" role="status"></div>
@@ -137,11 +133,17 @@
       <div id="pictureTables"></div>
       <label class="field" for="pictureAccount"><span class="l-en">Account number for Express (optional)</span><span class="l-th">เลขที่บัญชีสำหรับ Express (ไม่บังคับ)</span></label>
       <input type="text" class="field-input" id="pictureAccount" inputmode="numeric" autocomplete="off" spellcheck="false">
-      <div class="row">
-        <button type="button" class="btn primary" id="pictureDownload"><span class="l-en">⬇ Download Excel</span><span class="l-th">⬇ ดาวน์โหลด Excel</span></button>
-        <button type="button" class="btn" id="pictureExpress"><span class="l-en">Convert to Express…</span><span class="l-th">แปลงเป็น Express…</span></button>
-      </div>
       <p class="hint"><span class="l-en">Convert to Express only runs when you press it. Green lines go to Express; every other line is listed on a "Rows to check" sheet.</span><span class="l-th">แปลงเป็น Express เฉพาะเมื่อกดปุ่มเท่านั้น บรรทัดสีเขียวเข้าไฟล์ Express ส่วนบรรทัดอื่นจะอยู่ในชีต "รายการที่ต้องตรวจ"</span></p>
+    </div>
+    <div class="actions">
+      <div class="row">
+        <button type="button" class="btn primary" id="pictureGo"><span class="l-en">Read the tables</span><span class="l-th">อ่านตาราง</span></button>
+        <span class="rowpart" id="pictureDone" hidden>
+          <button type="button" class="btn primary" id="pictureDownload"><span class="l-en">⬇ Download Excel</span><span class="l-th">⬇ ดาวน์โหลด Excel</span></button>
+          <button type="button" class="btn" id="pictureExpress"><span class="l-en">Convert to Express…</span><span class="l-th">แปลงเป็น Express…</span></button>
+        </span>
+        <button type="button" class="btn" id="pictureClear"><span class="l-en">Clear</span><span class="l-th">ล้าง</span></button>
+      </div>
     </div>
   </section>
 
@@ -149,14 +151,16 @@
     <h2>📷 <span class="l-en">Statement photos</span><span class="l-th">รูปถ่ายใบแจ้งยอด</span></h2>
     <p class="sub"><span class="l-en">Put the pages in order with ◀ ▶ (page 1 first).</span><span class="l-th">เรียงหน้าด้วยปุ่ม ◀ ▶ (หน้าแรกก่อน)</span></p>
     <ol class="photolist" id="photoList"></ol>
-    <div class="row">
-      <button type="button" class="btn primary" id="photoGo"><span class="l-en">Make readable PDF</span><span class="l-th">ทำ PDF ที่อ่านได้</span></button>
-      <button type="button" class="btn" id="photoClear"><span class="l-en">Clear</span><span class="l-th">ล้าง</span></button>
-    </div>
     <p class="bad" id="photoError" hidden></p>
-    <div class="row" id="photoDone" hidden>
-      <button type="button" class="btn primary" id="photoSend"><span class="l-en">Check it → Express</span><span class="l-th">ตรวจ → Express</span></button>
-      <button type="button" class="btn" id="photoDownload"><span class="l-en">⬇ Readable PDF</span><span class="l-th">⬇ ดาวน์โหลด PDF ที่อ่านได้</span></button>
+    <div class="actions">
+      <div class="row">
+        <button type="button" class="btn primary" id="photoGo"><span class="l-en">Make readable PDF</span><span class="l-th">ทำ PDF ที่อ่านได้</span></button>
+        <span class="rowpart" id="photoDone" hidden>
+          <button type="button" class="btn primary" id="photoSend"><span class="l-en">Check it → Express</span><span class="l-th">ตรวจ → Express</span></button>
+          <button type="button" class="btn" id="photoDownload"><span class="l-en">⬇ Readable PDF</span><span class="l-th">⬇ ดาวน์โหลด PDF ที่อ่านได้</span></button>
+        </span>
+        <button type="button" class="btn" id="photoClear"><span class="l-en">Clear</span><span class="l-th">ล้าง</span></button>
+      </div>
     </div>
   </section>
 
@@ -166,11 +170,13 @@
     <ol class="photolist" id="passbookList"></ol>
     <label class="field" for="passbookAccount"><span class="l-en">Account number from the passbook cover (optional)</span><span class="l-th">เลขที่บัญชีจากหน้าปกสมุด (ไม่บังคับ)</span></label>
     <input type="text" class="field-input" id="passbookAccount" inputmode="numeric" autocomplete="off" spellcheck="false">
-    <div class="row">
-      <button type="button" class="btn primary" id="passbookGo"><span class="l-en">Read and check → Express</span><span class="l-th">อ่านและตรวจ → Express</span></button>
-      <button type="button" class="btn" id="passbookClear"><span class="l-en">Clear</span><span class="l-th">ล้าง</span></button>
-    </div>
     <p class="bad" id="passbookError" hidden></p>
+    <div class="actions">
+      <div class="row">
+        <button type="button" class="btn primary" id="passbookGo"><span class="l-en">Read and check → Express</span><span class="l-th">อ่านและตรวจ → Express</span></button>
+        <button type="button" class="btn" id="passbookClear"><span class="l-en">Clear</span><span class="l-th">ล้าง</span></button>
+      </div>
+    </div>
   </section>
 
   <section class="panel" id="tablePanel" hidden>
@@ -187,12 +193,14 @@
     <input type="text" class="field-input" id="tableOpening" inputmode="decimal" autocomplete="off" spellcheck="false">
     <label class="field" for="tableClosing"><span class="l-en">Closing balance printed on the statement (a minus in front if overdrawn) - type both if you can</span><span class="l-th">ยอดคงเหลือปลายงวดที่พิมพ์บนใบแจ้งยอด (ถ้าติดลบให้ใส่ - ข้างหน้า) ต้องใส่ช่องนี้หรือช่องบน</span></label>
     <input type="text" class="field-input" id="tableClosing" inputmode="decimal" autocomplete="off" spellcheck="false">
-    <div class="row">
-      <button type="button" class="btn primary" id="tableGo"><span class="l-en">Check → Express</span><span class="l-th">ตรวจ → Express</span></button>
-      <button type="button" class="btn" id="tableClear"><span class="l-en">Clear</span><span class="l-th">ล้าง</span></button>
-    </div>
     <p class="bad" id="tableError" style="white-space: pre-line" hidden></p>
     <p class="hint" id="tableSkipped" hidden></p>
+    <div class="actions">
+      <div class="row">
+        <button type="button" class="btn primary" id="tableGo"><span class="l-en">Check → Express</span><span class="l-th">ตรวจ → Express</span></button>
+        <button type="button" class="btn" id="tableClear"><span class="l-en">Clear</span><span class="l-th">ล้าง</span></button>
+      </div>
+    </div>
   </section>
 
   <p class="progress" id="progress" role="status" aria-live="polite"></p>
