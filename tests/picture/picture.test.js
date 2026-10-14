@@ -189,7 +189,7 @@ test('Download Excel with lights: a light and a why on every line, and a Checks 
   const lit = pictureLights([t, { name: 'p2.jpg', error: 'too blurry', rows: [] }], typed);
   const [table, , checks] = await readXlsx(pictureWorkbook([t, { name: 'p2.jpg', error: 'too blurry', rows: [] }], lit, typed));
   const head = table.rows[1];
-  assert.equal(head[1], 'Light · ไฟ');
+  assert.equal(head[1], 'Light · สถานะ');
   assert.equal(head.at(-1), 'Why · เหตุผล');
   const bad = table.rows.find(r => r.includes('12,345.76'));
   assert.match(bad[1], /^Red/);

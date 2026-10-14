@@ -1,25 +1,15 @@
 /* Statement → Express - same colour family as Pic-to-PDF, so the two feel like one site. */
 
 :root{
-  --screen:#F2F3F6; --sheet:#FFFFFF;
-  --ink:#111820; --ink2:#697585; --hair:#DFE3E9;
+  /* Day shift (Co 2026-10-14, tone D "soft warm white"): always light, whatever the computer is set to. */
+  --screen:#F9F8F5; --sheet:#FFFFFF;
+  --ink:#1C1A17; --ink2:#625D55; --hair:#E4E0D8;
   --accent:#0E5A61; --accent-soft:#DBEAEA; --accent-ink:#0A464B; --on-accent:#FFFFFF;
   --good:#1E7A3C; --good-soft:#E3F2E7;
   --wait:#8A6100; --wait-soft:#FBF1D5;
   --part:#A24A00; --part-soft:#FDE8D6;
   --bad:#B42318; --bad-soft:#FBE7E5;
-  color-scheme:light dark;
-}
-@media (prefers-color-scheme: dark){
-  :root{
-    --screen:#0D1116; --sheet:#171D24;
-    --ink:#E8ECF1; --ink2:#8D99A6; --hair:#262E37;
-    --accent:#63C4C8; --accent-soft:#153033; --accent-ink:#8FD9DC; --on-accent:#0B1013;
-    --good:#6FCF8E; --good-soft:#15291C;
-    --wait:#E8C25A; --wait-soft:#2B2412;
-    --part:#F5A25D; --part-soft:#33200F;
-    --bad:#F28B82; --bad-soft:#2E1715;
-  }
+  color-scheme:light;
 }
 
 *{box-sizing:border-box}

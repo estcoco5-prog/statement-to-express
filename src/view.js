@@ -26,7 +26,7 @@ export const MESSAGES = {
     en: 'This is not a PDF that can be opened (for example a photo or an Excel file).',
   },
   'no-text': {
-    th: 'PDF นี้เป็นรูปภาพล้วน (ไฟล์สแกน) กด "อ่านเป็นรูปถ่าย" เพื่ออ่านจากรูป',
+    th: 'PDF นี้เป็นรูปภาพล้วน (ไฟล์สแกน) กด "อ่านเป็นรูปภาพ" เพื่ออ่านจากรูป',
     en: 'This PDF is pictures only (a scan). Press "Read it as photos" to read it from the pictures.',
   },
   'summary-only': {
@@ -84,11 +84,11 @@ export const MESSAGES = {
     en: 'This file is the same as one already chosen, so it was not added again.',
   },
   'need-typed': {
-    th: 'พิมพ์ยอดยกมา หรือยอดคงเหลือปลายงวด (หรือทั้งสอง) จากใบแจ้งยอดจริงก่อน เพื่อให้ตรวจได้ว่ายอดติดลบหรือไม่',
+    th: 'กรอกยอดยกมา หรือยอดคงเหลือปลายงวด (หรือทั้งสอง) จากใบแจ้งยอดจริงก่อน เพื่อให้ตรวจได้ว่ายอดติดลบหรือไม่',
     en: 'Type the opening or the closing balance (or both) from the paper statement first, so the tool can tell an overdrawn account from one in credit.',
   },
   'bad-typed': {
-    th: 'อ่านยอดยกมา/ยอดคงเหลือปลายงวดที่พิมพ์ไม่ได้ พิมพ์แบบ 1,234.50 (ติดลบใส่ - ข้างหน้า) หรือเว้นว่าง',
+    th: 'อ่านยอดยกมา/ยอดคงเหลือปลายงวดที่กรอกไม่ได้ กรอกแบบ 1,234.50 (ติดลบใส่ - ข้างหน้า) หรือเว้นว่าง',
     en: 'A typed opening or closing balance could not be read. Type it like 1,234.50 (a minus in front if overdrawn), or leave it blank.',
   },
   'no-balance': {

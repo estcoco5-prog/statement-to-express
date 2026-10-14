@@ -183,8 +183,10 @@ export async function readTableFile(name, bytes) {
   // This app's own Picture -> Excel file: what held its lines (a date the
   // reader was unsure of) is not in the
   // cells, so checking it again here could send them. It is converted on the
-  // Picture card instead (G8 picture-v2 release review).
-  if (sheets.some(s => s.rows.slice(0, 3).some(r => r.some(c => /^Light · ไฟ$|^ไฟ$|^Read from statement pictures on this computer|^อ่านจากรูปใบแจ้งยอดในเครื่องนี้/.test(String(c ?? '').trim()))))) {
+  // Picture card instead (G8 picture-v2 release review). The light column was
+  // headed ไฟ before 2026-10-14 (now สถานะ): both are known. A bare สถานะ is not
+  // a marker - another tool's sheet may well have a status column.
+  if (sheets.some(s => s.rows.slice(0, 3).some(r => r.some(c => /^Light · (?:ไฟ|สถานะ)$|^ไฟ$|^Read from statement pictures on this computer|^อ่านจากรูปใบแจ้งยอดในเครื่องนี้/.test(String(c ?? '').trim()))))) {
     throw new TableError('own-picture-file', 'a Picture -> Excel file from this app');
   }
   return sheets;

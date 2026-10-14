@@ -21,15 +21,15 @@ export const SPAN_DAYS = 45;
 // just fact check back to them"): nothing is held because of these.
 export const WARN_OVERDRAFT = {
   en: 'Money in and out sit in one column with no + or − signs, and no balance shows a minus. If this account was overdrawn at any time, the directions could be reversed without any check failing - compare them with the paper.',
-  th: 'เงินเข้าและออกอยู่คอลัมน์เดียวโดยไม่มีเครื่องหมาย + หรือ − และไม่มียอดติดลบ ถ้าบัญชีเคยติดลบ ทิศทางเงินอาจกลับด้านโดยไม่มีการตรวจใดไม่ผ่าน ให้เทียบกับกระดาษ',
+  th: 'เงินเข้าและออกอยู่คอลัมน์เดียวโดยไม่มีเครื่องหมาย + หรือ − และไม่มียอดติดลบ ถ้าบัญชีเคยติดลบ ทิศทางเงินอาจกลับด้านโดยไม่มีการตรวจใดไม่ผ่าน ให้เทียบกับต้นฉบับ',
 };
 export const WARN_DATES = {
   en: 'The balance proves each amount, not its date: dates are only checked to be in order - compare them with the paper.',
-  th: 'ยอดคงเหลือยืนยันจำนวนเงิน ไม่ได้ยืนยันวันที่ ระบบตรวจเพียงว่าวันที่เรียงลำดับ ให้เทียบวันที่กับกระดาษ',
+  th: 'ยอดคงเหลือยืนยันจำนวนเงิน ไม่ได้ยืนยันวันที่ ระบบตรวจเพียงว่าวันที่เรียงลำดับ ให้เทียบวันที่กับต้นฉบับ',
 };
 export const WARN_NEWEST = {
   en: 'These pages list the newest line first: the lines were put oldest first before checking. Type the opening balance as the balance before the oldest line (the last line of the last page), and the closing balance as the balance of the newest line (the first line of the first page).',
-  th: 'หน้าเหล่านี้เรียงรายการล่าสุดไว้ก่อน ระบบจึงเรียงใหม่จากเก่าไปใหม่ก่อนตรวจ ยอดยกมาให้พิมพ์ยอดก่อนรายการที่เก่าที่สุด (บรรทัดสุดท้ายของหน้าสุดท้าย) และยอดปลายงวดให้พิมพ์ยอดของรายการล่าสุด (บรรทัดแรกของหน้าแรก)',
+  th: 'หน้าเหล่านี้เรียงรายการล่าสุดไว้ก่อน ระบบจึงเรียงใหม่จากเก่าไปใหม่ก่อนตรวจ ยอดยกมาให้กรอกยอดก่อนรายการที่เก่าที่สุด (บรรทัดสุดท้ายของหน้าสุดท้าย) และยอดคงเหลือปลายงวดให้กรอกยอดของรายการล่าสุด (บรรทัดแรกของหน้าแรก)',
 };
 
 // Newest line first (a BBL Transaction Report - Co 2026-10-13)? Two signs must

@@ -37,7 +37,7 @@ export function pictureWorkbook(pages, lit = null, typed = {}, lang = 'en') {
     const key = head.join('|');
     if (key !== shown) {
       table.add(new Cell(shown === null ? L('Picture', 'รูป') : clean(th ? `รูป (หัวตารางของ ${p.name})` : `Picture · รูป (headings of ${p.name})`), HEADER),
-        ...(lit ? [new Cell(L('Light', 'ไฟ'), HEADER)] : []),
+        ...(lit ? [new Cell(L('Light', 'สถานะ'), HEADER)] : []),
         ...head.map(h => new Cell(clean(h), HEADER)), ...(lit ? [...Array(width - head.length).fill(new Cell('', HEADER)), new Cell(L('Why', 'เหตุผล'), HEADER)] : []));
       shown = key;
     }
@@ -58,8 +58,8 @@ export function pictureWorkbook(pages, lit = null, typed = {}, lang = 'en') {
   checks.add(new Cell(L('All pictures', 'ทุกรูป'), BOLD), new Cell(WORD[lit.set.light], FILL[lit.set.light]), new Cell(say(lit.set.headline), BOLD));
   const { green, yellow, red } = lit.set.counts;
   checks.add(L('Lines', 'บรรทัด'), '', th ? `เขียว ${green} · เหลือง ${yellow} · แดง ${red}` : `${green} green · ${yellow} yellow · ${red} red`);
-  checks.add(L('Opening balance typed', 'ยอดยกมาที่พิมพ์'), '', typed.openingText || (th ? '(ไม่ได้พิมพ์)' : '(not typed)'));
-  checks.add(L('Closing balance typed', 'ยอดคงเหลือปลายงวดที่พิมพ์'), '', typed.closingText || (th ? '(ไม่ได้พิมพ์)' : '(not typed)'));
+  checks.add(L('Opening balance typed', 'ยอดยกมาที่กรอก'), '', typed.openingText || (th ? '(ไม่ได้กรอก)' : '(not typed)'));
+  checks.add(L('Closing balance typed', 'ยอดคงเหลือปลายงวดที่กรอก'), '', typed.closingText || (th ? '(ไม่ได้กรอก)' : '(not typed)'));
   for (const w of lit.warnings ?? []) checks.add(new Cell(L('Check by eye', 'ตรวจด้วยตา'), BAD), '', th ? w.th : `${w.en} · ${w.th}`);
   checks.add('');
   checks.add(new Cell(L('Check', 'การตรวจ'), HEADER), new Cell(L('Result', 'ผล'), HEADER), new Cell(L('Detail', 'รายละเอียด'), HEADER));

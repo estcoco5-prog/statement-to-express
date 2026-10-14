@@ -221,7 +221,7 @@ function show(entries) {
       r.detail ? el('p', 'detail', pair(r.detail)) : '');
     if (r.code === 'no-text' && fileOf.has(r.name)) {
       // A scan: its pages are pictures, so read them the way photos are read.
-      const b = el('button', 'btn', P('Read it as photos', 'อ่านเป็นรูปถ่าย'));
+      const b = el('button', 'btn', P('Read it as photos', 'อ่านเป็นรูปภาพ'));
       b.type = 'button';
       b.addEventListener('click', async () => {
         const { picturesFromPdf } = await import('./photo/ocr.js');
@@ -347,7 +347,7 @@ function offerBankPdf(files) {
   const toBank = el('button', 'btn primary small', P('Read it in Bank PDF → Express (exact)', 'อ่านด้วย PDF จากธนาคาร → Express (ตรงทุกตัว)'));
   toBank.type = 'button';
   toBank.addEventListener('click', () => { offerBankPdf([]); $('dropzone').scrollIntoView({ behavior: 'smooth' }); run(files); });
-  const anyway = el('button', 'btn small', P('Read as pictures anyway', 'อ่านเป็นรูปภาพต่อไป'));
+  const anyway = el('button', 'btn small', P('Read as pictures anyway', 'อ่านเป็นรูปภาพอยู่ดี'));
   anyway.type = 'button';
   anyway.addEventListener('click', () => { offerBankPdf([]); addPictures(files, { asPictures: true }); });
   box.replaceChildren(
@@ -445,7 +445,7 @@ function drawPictureTables() {
     t.rows.forEach((row, r) => {
       const tr = el('tr', '');
       const tds = [];
-      const light = el(r === 0 ? 'th' : 'td', 'light', r === 0 ? P('Light', 'ไฟ') : '');
+      const light = el(r === 0 ? 'th' : 'td', 'light', r === 0 ? P('Light', 'สถานะ') : '');
       tr.append(light);
       row.forEach((cellText, c) => {
         const td = el(r === 0 ? 'th' : 'td', '');
@@ -489,7 +489,7 @@ async function relight() {
   $('pictureWarnings').replaceChildren(...(pictureLit?.warnings ?? []).map(w => el('p', 'caveat', join('⚠ ', P(w.en, w.th)))));
   if (!pictureLit) {
     bar.className = 'lightbar red';
-    bar.replaceChildren(el('span', '', P('Fix the typed balance to see the lights', 'แก้ยอดที่พิมพ์ไว้ให้ถูกรูปแบบ แล้วสีไฟจะแสดง')));
+    bar.replaceChildren(el('span', '', P('Fix the typed balance to see the lights', 'แก้ยอดที่กรอกไว้ให้ถูกรูปแบบ แล้วสีไฟจะแสดง')));
   } else {
     const { light, headline, counts } = pictureLit.set;
     const dot = el('span', `dot ${light}`);

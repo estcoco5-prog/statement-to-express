@@ -58,7 +58,7 @@ const WHY = [
   [/^this file does not carry on from the one before it \(one missing, out of order, or pictures that overlap\), so nothing from it was sent - check its rows against the original$/,
     'ไฟล์นี้ไม่ต่อจากไฟล์ก่อนหน้า (ขาดไป สลับลำดับ หรือรูปซ้อนกัน) จึงไม่ส่งรายการใดจากไฟล์นี้ - ตรวจรายการกับต้นฉบับ'],
   [/^not linked to the opening or closing balance typed in by an unbroken run of proved lines \(a line that does not add up, or a balance of exactly 0, breaks the run\) - check it against the original$/,
-    'ยังไม่เชื่อมกับยอดยกมาหรือยอดคงเหลือปลายงวดที่พิมพ์ไว้ด้วยบรรทัดที่ตรวจผ่านต่อเนื่องกัน (บรรทัดที่ไม่ลงตัว หรือยอดคงเหลือเป็น 0 พอดี ทำให้ขาดช่วง) - ตรวจกับต้นฉบับ'],
+    'ยังไม่เชื่อมกับยอดยกมาหรือยอดคงเหลือปลายงวดที่กรอกไว้ด้วยบรรทัดที่ตรวจผ่านต่อเนื่องกัน (บรรทัดที่ไม่ลงตัว หรือยอดคงเหลือเป็น 0 พอดี ทำให้ขาดช่วง) - ตรวจกับต้นฉบับ'],
   [/^the first line: the opening balance it was checked against was read, not proved - check the amount against the photo$/,
     'บรรทัดแรก: ยอดยกมาที่ใช้ตรวจเป็นยอดที่อ่านได้ ยังไม่ได้ยืนยัน - ตรวจจำนวนเงินกับรูป'],
   [/^the line above could not be proved, so the balance this amount was checked against is not proved either - check the amount against the photo$/,

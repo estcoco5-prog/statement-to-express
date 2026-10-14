@@ -79,7 +79,7 @@ test('Picture -> Excel in Thai: our words Thai, the cells as read, and the app s
   assert.deepEqual(book.map(s => s.name), ['ตาราง', 'ข้อความอื่น', 'การตรวจ']);
   const [table, , checks] = book;
   assert.equal(table.rows[0][0], 'อ่านจากรูปใบแจ้งยอดในเครื่องนี้ ตรวจทุกตัวเลขเทียบกับรูปก่อนใช้');
-  assert.deepEqual(table.rows[1].slice(0, 2), ['รูป', 'ไฟ']);
+  assert.deepEqual(table.rows[1].slice(0, 2), ['รูป', 'สถานะ']);
   assert.equal(table.rows[1].at(-1), 'เหตุผล');
   // the picture's own headings and cells, exactly as read
   assert.deepEqual(table.rows[1].slice(2, 2 + rows[1].length), rows[1]);
