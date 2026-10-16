@@ -22,7 +22,7 @@ const dmy = iso => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
  * @param opening the brought-forward balance, or null to work it back from the first line
  * @param closing the closing balance printed on the source, or null
  */
-export function linesStatement(name, lines, profile, { opening = null, closing = null, account = null, pageWord = 'page', typedOpening, holdBrokenPages = false } = {}) {
+export function linesStatement(name, lines, profile, { opening = null, closing = null, account = null, pageWord = 'page', typedOpening, holdBrokenPages = false, totals = null, zeroLines = [] } = {}) {
   const rows = lines.map(l => {
     const r = new Row();
     Object.assign(r, { page: l.page, line: l.line, description: l.description ?? '', printedSign: l.sign ?? null });
@@ -118,8 +118,10 @@ export function linesStatement(name, lines, profile, { opening = null, closing =
   const facts = {
     account_no: account || null, account_name: null, branch: null,
     period_from: dates.length ? dmy(dates[0]) : null, period_to: dates.length ? dmy(dates[dates.length - 1]) : null,
-    closing_stated: closing, withdraw_total: null, withdraw_count: null, deposit_total: null, deposit_count: null,
+    closing_stated: closing, withdraw_total: totals?.withdraw_total ?? null, withdraw_count: null,
+    deposit_total: totals?.deposit_total ?? null, deposit_count: null,
     opening_derived: openingDerived,
+    ...(zeroLines.length ? { zero_lines: zeroLines } : {}),
   };
   // The period IS these lines' own dates, so "dated outside the period" says nothing here.
   const checks = buildChecks(opening, rows, closingComputed, facts).filter(([label]) => !label.startsWith('Rows dated outside'));

@@ -6,7 +6,7 @@ import { PROFILES, identify } from './profiles.js';
 import { generalProfile } from './general.js';
 import { parseHeader } from './header.js';
 import { extractRows } from './extract.js';
-import { classifyAndVerify, buildChecks } from './verify.js';
+import { classifyAndVerify, buildChecks, dropZeroLines } from './verify.js';
 import { periodBounds } from './dates.js';
 
 export class Statement {
@@ -116,14 +116,36 @@ export async function readStatement(name, bytes, passwords = [], bank = null, pd
   // A PDF made from photos names the bank the photo step recognised; its own
   // mark may have been misread, so that note comes before identify().
   const noted = (pages.bank && Object.hasOwn(PROFILES, pages.bank) ? PROFILES[pages.bank] : null);
-  const profile = bank === 'general' ? generalProfile(pages)
+  let profile = bank === 'general' ? generalProfile(pages)
     : bank ? PROFILES[bank] : noted ?? identify(allText) ?? generalProfile(pages);
   if (!profile) throw new StatementError('this statement does not match any bank profile yet', 'unknown-bank');
+  if (profile.legendRe) profile = { ...profile, codeNames: { ...profile.codeNames, ...legend(linesByPage, profile.legendRe) } };
   const facts = parseHeader(linesByPage.flat(), profile, { photo: pages.source === 'photo' });
-  const { opening, rows } = extractRows(pages, profile, facts);
+  const extracted = extractRows(pages, profile, facts);
+  const opening = extracted.opening;
+  const { rows, dropped } = dropZeroLines(opening, extracted.rows);
+  if (dropped.length) facts.zero_lines = dropped;
+  if (profile.periodFromRows && facts.period_from === null) {
+    const dates = rows.map(r => r.date).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d ?? '')).sort();
+    if (dates.length) {
+      const dmy = iso => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+      [facts.period_from, facts.period_to] = [dmy(dates[0]), dmy(dates[dates.length - 1])];
+      facts.period_from_rows = true;
+    }
+  }
   const closing = classifyAndVerify(opening, rows, profile);
   const checks = buildChecks(opening, rows, closing, facts);
   const statement = new Statement(name, profile, facts, opening, rows, closing, checks);
   statement.fromPhoto = pages.source === 'photo';
   return statement;
+}
+
+// A printed code legend ("BPKB - DEPOSIT THRU BILLS PAYMENT-KBANK", EXIM's last
+// page) -> { code: name }, so a row printed with only its code says what it is.
+function legend(linesByPage, re) {
+  const names = {};
+  for (const line of linesByPage.flat()) {
+    for (const [, code, name] of rowText(line).matchAll(re)) names[code] ??= name;
+  }
+  return names;
 }

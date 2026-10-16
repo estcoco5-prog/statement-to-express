@@ -1,10 +1,11 @@
 // Step 3 - read the transaction rows.
 import { StatementError } from './errors.js';
-import { parseAmount, fmtMoney } from './money.js';
+import { parseAmount, parseSigned, fmtMoney } from './money.js';
 import { Word } from './words.js';
 import { DATE_RE, TIME_RE, ROW_TOLERANCE, groupIntoRows, rowText, rowY } from './rows.js';
 import { D_MON_RE, parseDate, parseDMon } from './dates.js';
 import { cellsByColumn } from './header.js';
+import { inWithdrawalColumn } from './profiles.js';
 
 export { cellsByColumn };
 
@@ -29,8 +30,8 @@ export class Row {
 }
 
 // Catch the row grouping having swallowed two real lines at once.
-export function checkRowSanity(buckets) {
-  const dates = (buckets.date ?? []).filter(w => DATE_RE.test(w.text));
+export function checkRowSanity(buckets, norm = w => w.text) {
+  const dates = (buckets.date ?? []).filter(w => DATE_RE.test(norm(w)));
   if (dates.length > 1) {
     throw new StatementError(
       `two dates landed on one line ([${dates.map(w => `'${w.text}'`).join(', ')}]) - the row ` +
@@ -46,6 +47,9 @@ const hasLoose = (text, marks) => (marks ?? []).some(m => loose(text).includes(l
 
 export function extractRows(pages, profile, facts) {
   const hasOpening = pages.source === 'photo' ? hasLoose : has;
+  // A business form's own date shape ("01.06.2026", "01-มิ.ย.-2569") as dd/mm/yyyy.
+  const norm = w => (profile.normDate ? profile.normDate(w.text) : w.text);
+  const balanceOf = profile.signedBalances ? parseSigned : parseAmount;
   let opening = null;
   let rows = [];
 
@@ -57,6 +61,19 @@ export function extractRows(pages, profile, facts) {
     // never crosses a page break: the lines at the top of a new page are that
     // page's header, not a continuation of the last row before it.
     let wrappable = null, wrapY = null;
+    // wrapNearest: wrapped lines seen since the last row, given to whichever
+    // row turns out nearer - the one above, or the next one below.
+    let held = [];
+    const settle = (next, nextY) => {
+      const before = [];
+      for (const h of held) {
+        const up = wrappable !== null ? h.y - wrapY : Infinity, down = next !== null ? nextY - h.y : Infinity;
+        if (Math.min(up, down) > profile.wrapNearest) continue;     // too far from both: a heading
+        if (up <= down) appendWrapped(wrappable, h.buckets, profile); else before.push(h);
+      }
+      held = [];
+      return before;
+    };
     for (const line of groupIntoRows(words)) {
       const text = rowText(line);
       const buckets = cellsByColumn(line, profile);
@@ -67,9 +84,9 @@ export function extractRows(pages, profile, facts) {
         const joined = (buckets.date ?? []).map(w => w.text).join(' ');
         dateWords = D_MON_RE.test(joined) ? [new Word(0, 0, 0, 0, joined)] : [];
       } else {
-        dateWords = (buckets.date ?? []).filter(w => DATE_RE.test(w.text));
+        dateWords = (buckets.date ?? []).filter(w => DATE_RE.test(norm(w)));
       }
-      const balances = (buckets.balance ?? []).map(w => [w, parseAmount(w.text)]).filter(([, a]) => a !== null);
+      const balances = (buckets.balance ?? []).map(w => [w, balanceOf(w.text)]).filter(([, a]) => a !== null);
       let money = (buckets.amount ?? []).map(w => [w, amountOf(w.text, profile)]).filter(([, a]) => a !== null);
       // A transaction has a date and a balance - or, for a bank that prints the
       // balance only on some rows, a date and an amount.
@@ -80,7 +97,7 @@ export function extractRows(pages, profile, facts) {
       // real last row. A line carrying a date and a balance is data.
       if (has(text, profile.marks.footer) && !isRow) break;
 
-      checkRowSanity(buckets);
+      checkRowSanity(buckets, norm);
 
       // The opening row: a date and a balance, no amount. It repeats at the top
       // of every page as a carry-forward; only the first one counts.
@@ -92,25 +109,28 @@ export function extractRows(pages, profile, facts) {
       if (!isRow) {
         // No date and no balance: a description wrapped onto a second line
         // belongs to the transaction above it, on this page.
-        if (wrappable !== null && !dateWords.length && !balances.length) {
+        if (profile.wrapNearest !== null) {
+          if (!dateWords.length && !balances.length) held.push({ y: rowY(line), buckets });
+        } else if (wrappable !== null && !dateWords.length && !balances.length) {
           if (profile.wrapReach !== null && (rowY(line) - wrapY > profile.wrapReach
               || !['description', 'channel', 'details'].some(f =>
                 (buckets[f] ?? []).some(w => /[\p{L}\p{N}]/u.test(w.text))))) {
             wrappable = null;               // a gap or a ruled line: the table ended
           } else {
-            appendWrapped(wrappable, buckets);
+            appendWrapped(wrappable, buckets, profile);
             wrapY = rowY(line);
           }
         }
         continue;
       }
 
+      const before = profile.wrapNearest !== null ? settle(true, rowY(line)) : [];
       const row = new Row();
       // From photos: the page a row came from, so the Review file can say
       // where to check it. Bank PDFs keep exactly the reference's rows.
       if (pages.source === 'photo') row.page = index + 1;
       const [date, warning] = profile.dateStyle === 'd_mon'
-        ? parseDMon(dateWords[0].text, facts) : parseDate(dateWords[0].text, facts);
+        ? parseDMon(dateWords[0].text, facts) : parseDate(norm(dateWords[0]), facts, profile);
       row.date = date;
       if (warning) row.notes.push(warning);
       if (row.date === null) {
@@ -142,8 +162,18 @@ export function extractRows(pages, profile, facts) {
         row.notes.push('no amount found in the amount column');
       }
 
+      for (const h of before.reverse()) prependWrapped(row, h.buckets);
       rows.push(row);
       wrappable = row; wrapY = rowY(line);
+    }
+    if (profile.wrapNearest !== null) settle(null, null);    // the page's last row may still own some
+  }
+
+  if (profile.leadChannel) for (const row of rows) splitLeadChannel(row);
+  if (profile.wrapStrip.length) {
+    for (const row of rows) {
+      for (const label of profile.wrapStrip) row.description = row.description.split(label).join(' ');
+      row.description = row.description.replace(/\s+/g, ' ').trim();
     }
   }
 
@@ -199,7 +229,7 @@ export function flagFurniture(row, profile) {
 // the first row. The bank's printed totals are what confirm it.
 function deriveOpening(first, profile, facts) {
   if (first.balance === null || first.amount === null || first.amountX1 === null) return null;
-  const wentOut = first.amountX1 < profile.amountSplitX;
+  const wentOut = inWithdrawalColumn(first.amountX1, profile);
   facts.opening_derived = true;
   return wentOut ? first.balance + first.amount : first.balance - first.amount;
 }
@@ -207,11 +237,11 @@ function deriveOpening(first, profile, facts) {
 export const isThai = ch => ch >= '฀' && ch <= '๿';
 
 // Glue a wrapped continuation line onto the transaction it belongs to.
-export function appendWrapped(row, buckets) {
+export function appendWrapped(row, buckets, profile = null) {
   if (!row.time) {
-    // KTB prints the time on the line under the date.
+    // KTB prints the time on the line under the date (UOB Business: with seconds).
     for (const w of [...(buckets.date ?? []), ...(buckets.time ?? [])]) {
-      if (TIME_RE.test(w.text)) { row.time = w.text; break; }
+      if (profile ? isTime(w.text, profile) : TIME_RE.test(w.text)) { row.time = w.text; break; }
     }
   }
   for (const field of ['description', 'channel', 'details']) {
@@ -223,5 +253,25 @@ export function appendWrapped(row, buckets) {
       const glue = before && isThai(before[before.length - 1]) && isThai(extra[0]) ? '' : ' ';
       row[field] = (before + glue + extra).trim();
     }
+  }
+}
+
+// A wrapped line printed ABOVE its transaction (SCB Business): its text goes first.
+function prependWrapped(row, buckets) {
+  for (const field of ['description', 'channel', 'details']) {
+    const extra = (buckets[field] ?? []).map(w => w.text).join(' ');
+    if (extra) row[field] = `${extra} ${row[field]}`.trim();
+  }
+}
+
+// "business one Transfer out via business one KKB X5077 ..." (ttb): the channel
+// printed first is said again inside the description - it becomes the channel,
+// so the 50 characters Express keeps hold the other party, not the channel twice.
+function splitLeadChannel(row) {
+  const words = row.description.split(' ');
+  for (const n of [2, 1]) {
+    if (words.length <= n) continue;
+    const lead = words.slice(0, n).join(' '), rest = words.slice(n).join(' ');
+    if (rest.includes(lead)) { row.channel = lead; row.description = rest; return; }
   }
 }

@@ -141,16 +141,58 @@ export function tableStatement(name, files, map, { account = null, closingText =
     }
   }
   for (const l of lines) { delete l.eitherWay; delete l.dateKind; delete l.dayOver12; }
+  const totals = bankTotals(lines, skipped);
   // Newest first: checked oldest first, each line keeping its own file and row.
   const newest = newestFirst(lines);
   if (newest) lines.reverse();
+  const zeroLines = dropZeroLines(lines, opening ?? typedOpening, skipped);
   // A file whose first line does not chain on from the file before (one
   // missing, out of order, or pictures that overlap) sends nothing: overlapping
   // pictures would otherwise send the repeated rows twice (G8 Excel review B2).
   const statement = linesStatement(name, lines, TABLE_PROFILE,
-    { opening, closing, account, pageWord: 'file', typedOpening, holdBrokenPages: true });
+    { opening, closing, account, pageWord: 'file', typedOpening, holdBrokenPages: true, totals, zeroLines });
   statement.skipped = skipped;
   statement.warnings = warningsFor(lines, map, newest);
   statement.newestFirst = newest;
   return statement;
+}
+
+// A bank's own totals line at the foot of a file (UOB's export ends "T | | ... |
+// 13,337,969.20 | 13,100,103.64"): when its withdrawal and deposit figures are
+// exactly what the lines above it add up to, it is the bank's printed totals -
+// a check, not a transaction. Anything else stays a line to check by hand.
+function bankTotals(lines, skipped) {
+  let found = null;
+  for (const page of new Set(lines.map(l => l.page))) {
+    const own = lines.filter(l => l.page === page);
+    const last = own[own.length - 1];
+    if (!last?.totals || own.length < 2) continue;
+    const before = own.slice(0, -1);
+    const sum = side => before.filter(l => l.sign === side && l.amount !== null).reduce((a, l) => a + l.amount, 0);
+    if (sum('-') !== last.totals.wd || sum('+') !== last.totals.dp) continue;
+    lines.splice(lines.indexOf(last), 1);
+    skipped.push(`${last.where}: the bank's own totals line - used as a check`);
+    found = { withdraw_total: (found?.withdraw_total ?? 0) + last.totals.wd, deposit_total: (found?.deposit_total ?? 0) + last.totals.dp };
+  }
+  for (const l of lines) delete l.totals;
+  return found;
+}
+
+// Co 2026-10-16: a 0.00 line whose balance is the same as the line before moves
+// no money (a bounced-cheque fee of 0.00) - nothing to post. Left out and
+// listed, so it cannot hold the lines around it.
+function dropZeroLines(lines, opening, skipped) {
+  const dropped = [];
+  let before = opening ?? null;
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (l.amount === 0 && l.balance !== null && before !== null && l.balance === before && !l.dateNote) {
+      skipped.push(`${l.where}: 0.00 - nothing to post`);
+      dropped.push(`${l.date ?? ''} ${l.where}`.trim());
+      lines.splice(i--, 1);
+      continue;
+    }
+    if (l.balance !== null) before = l.balance;
+  }
+  return dropped;
 }

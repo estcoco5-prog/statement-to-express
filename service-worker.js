@@ -3,7 +3,7 @@
  * what makes a browser notice there is something new (the Pic-to-PDF pattern).
  * Only the page's own files are cached - never a statement or a result.
  */
-const CACHE = 'statement-to-express-v13';
+const CACHE = 'statement-to-express-v14';
 const ASSETS = [
   './',
   './index.html',
@@ -47,6 +47,7 @@ const ASSETS = [
   './src/photo/ocr.js',
   './src/engine/lines.js',
   './src/table/read.js',
+  './src/table/xls.js',
   './src/table/columns.js',
   './src/table/statement.js',
   './src/picture/table.js',

@@ -175,11 +175,51 @@ export function readCsv(text) {
   return [{ name: 'csv', rows }];
 }
 
-/** A chosen file -> its sheets. Old .xls (binary) cannot be read: save it as .xlsx. */
+// Text from a bank's export: UTF-8, or else the Thai Windows code page
+// (TIS-620 / windows-874) many Thai bank systems still write - read as UTF-8,
+// its Thai would come out as question marks.
+export function decodeText(bytes) {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder('windows-874').decode(bytes);
+  }
+}
+
+// An HTML table saved with an .xls name (some bank systems "export to Excel"
+// this way): each <tr> a row, each <td>/<th> a cell, tags and entities removed.
+export function readHtmlTable(text) {
+  const entity = { nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+  const clean = s => s.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, '')
+    .replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (m, e) => (e[0] === '#'
+      ? String.fromCodePoint(e[1].toLowerCase() === 'x' ? parseInt(e.slice(2), 16) : Number(e.slice(1)))
+      : entity[e.toLowerCase()] ?? m))
+    .replace(/\s+/g, ' ').trim();
+  const rows = [];
+  for (const [, tr] of text.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)) {
+    rows.push([...tr.matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(([, c]) => clean(c)));
+    if (rows.length > LIMITS.rows) throw tooBig('rows');
+  }
+  if (rows.some(r => r.length > LIMITS.columns)) throw tooBig('columns');
+  if (!rows.length) throw new TableError('not-table', 'no table in the file');
+  return [{ name: 'html', rows }];
+}
+
+// An .xls name says little: a real Excel 97-2003 file, an HTML table, or text.
+async function readOldExcel(bytes) {
+  const { isCompoundFile, readXls } = await import('./xls.js');
+  if (isCompoundFile(bytes)) return readXls(bytes);
+  const text = decodeText(bytes).replace(/^﻿/, '');
+  if (/^\s*</.test(text)) return readHtmlTable(text);
+  if (/[,;\t]/.test(text.split(/\r?\n/, 1)[0])) return readCsv(text);
+  throw new TableError('old-xls', 'an .xls file this app cannot read');
+}
+
+/** A chosen file -> its sheets: .xlsx, .xls (Excel 97-2003, or an HTML/text export so named), .csv. */
 export async function readTableFile(name, bytes) {
-  if (/\.xls$/i.test(name)) throw new TableError('old-xls', 'old .xls file');
   if (bytes.length > LIMITS.fileBytes) throw tooBig('bytes');
-  const sheets = /\.(csv|txt)$/i.test(name) ? await readCsv(new TextDecoder('utf-8').decode(bytes)) : await readXlsx(bytes);
+  const sheets = /\.xls$/i.test(name) ? await readOldExcel(bytes)
+    : /\.(csv|txt)$/i.test(name) ? await readCsv(decodeText(bytes)) : await readXlsx(bytes);
   // This app's own Picture -> Excel file: what held its lines (a date the
   // reader was unsure of) is not in the
   // cells, so checking it again here could send them. It is converted on the

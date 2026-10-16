@@ -2,6 +2,7 @@
 import { fmtMoney } from './money.js';
 import { periodBounds } from './dates.js';
 import { Row } from './extract.js';
+import { inWithdrawalColumn } from './profiles.js';
 
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -42,7 +43,7 @@ export function classifyAndVerify(opening, rows, profile) {
     }
 
     if (row.amountX1 !== null && profile.amountSplitX !== null && (row.withdrawal || row.deposit)) {
-      const looksLike = row.amountX1 < profile.amountSplitX ? 'withdrawal' : 'deposit';
+      const looksLike = inWithdrawalColumn(row.amountX1, profile) ? 'withdrawal' : 'deposit';
       const actual = row.withdrawal ? 'withdrawal' : 'deposit';
       if (looksLike !== actual) {
         row.notes.push(`the balance says this is a ${actual}, but it is printed in the ` +
@@ -56,6 +57,25 @@ export function classifyAndVerify(opening, rows, profile) {
   }
   splitTax(rows);
   return running;
+}
+
+// Lines that move no money: an amount of 0.00 with the balance unchanged from
+// the line before (Co 2026-10-16: "nothing to post"). They are taken out
+// before the proof - each would otherwise be a line whose direction "cannot be
+// determined", holding its neighbours with it. A 0.00 whose balance DID move
+// is a misread, and stays in to be caught.
+export function dropZeroLines(opening, rows, label = r => `${r.date} ${r.description}`.trim()) {
+  const kept = [], dropped = [];
+  let before = opening;
+  for (const row of rows) {
+    if (row.amount === 0 && !row.tax && row.balance !== null && before !== null && row.balance === before) {
+      dropped.push(label(row));
+      continue;
+    }
+    kept.push(row);
+    if (row.balance !== null) before = row.balance;
+  }
+  return { rows: kept, dropped };
 }
 
 export const TAX_LABEL = 'ภาษีหัก ณ ที่จ่าย';
@@ -91,12 +111,12 @@ function verifyGroup(running, group, profile) {
   let complete = true;
   for (const row of group) {
     if (row.amountX1 === null || profile.amountSplitX === null) { complete = false; break; }
-    terms.push(row.amountX1 < profile.amountSplitX ? -row.amount : row.amount);
+    terms.push(inWithdrawalColumn(row.amountX1, profile) ? -row.amount : row.amount);
   }
   const net = terms.reduce((a, b) => a + b, 0);
   if (complete && net === last.balance - running) {
     for (const row of group) {
-      if (row.amountX1 < profile.amountSplitX) row.withdrawal = row.amount; else row.deposit = row.amount;
+      if (inWithdrawalColumn(row.amountX1, profile)) row.withdrawal = row.amount; else row.deposit = row.amount;
       row.verified = true;
     }
     return last.balance;
@@ -148,8 +168,12 @@ export function buildChecks(opening, rows, closingComputed, facts) {
         `computed ${sumText(values)} vs printed ${fmtMoney(printedTotal)}`]);
     }
     if (printedCount !== null) {
-      checks.push([`Number of ${label} matches the bank's own count`, values.length === printedCount,
-        `found ${values.length} vs printed ${printedCount}`]);
+      // A bank may count its 0.00 lines (left out above) among its items.
+      const zeros = facts.zero_lines?.length ?? 0;
+      const withZeros = zeros > 0 && values.length !== printedCount && values.length + zeros === printedCount;
+      checks.push([`Number of ${label} matches the bank's own count`, values.length === printedCount || withZeros,
+        withZeros ? `found ${values.length} + ${zeros} line(s) of 0.00 vs printed ${printedCount}`
+          : `found ${values.length} vs printed ${printedCount}`]);
     }
   }
 
@@ -197,6 +221,17 @@ export function buildChecks(opening, rows, closingComputed, facts) {
       checks.push(['A month or more of the statement period has no lines (allowed, listed)', true,
         empty.map(e => `no lines ${e}`).join('; ') + ' - if the account was used then, this file may be cut short']);
     }
+  }
+
+  if (facts.period_from_rows) {
+    // The form prints no period: its first and last lines stand in for it.
+    checks.push(['Statement period not printed - taken from the first and last lines (allowed, listed)', true,
+      `${facts.period_from} to ${facts.period_to}`]);
+  }
+  if (facts.zero_lines?.length) {
+    // Co 2026-10-16: a 0.00 line moves no money (a bounced-cheque fee of 0.00):
+    // nothing to post, so it is left out of Express - and listed here.
+    checks.push(['Lines of 0.00 left out - nothing to post (allowed, listed)', true, facts.zero_lines.join('; ')]);
   }
 
   const other = rows.filter(r => r.verified && r.notes.length);

@@ -68,8 +68,8 @@ export const MESSAGES = {
     en: 'This file came from the Picture → Excel card on this site. Use Convert to Express there instead - the file does not keep why some lines were held.',
   },
   'old-xls': {
-    th: 'ไฟล์ .xls แบบเก่าเปิดไม่ได้ เปิดใน Excel แล้วบันทึกเป็น .xlsx',
-    en: 'Old .xls files cannot be opened here. Open it in Excel and save it as .xlsx.',
+    th: 'ไฟล์ .xls นี้อ่านไม่ได้ เปิดใน Excel แล้วบันทึกเป็น .xlsx',
+    en: 'This .xls file could not be read. Open it in Excel and save it as .xlsx.',
   },
   'too-big': {
     th: 'ไฟล์นี้ใหญ่หรือกว้างเกินกว่าใบแจ้งยอดปกติ (เกิน 20 MB, 256 คอลัมน์ หรือ 20,000 แถว) จึงไม่เปิด',

@@ -137,14 +137,15 @@ export function parseDMon(token, facts) {
 }
 
 // '09-06-26' -> ['2026-06-09', warning|null].
-export function parseDate(token, facts) {
+export function parseDate(token, facts, profile = null) {
   const match = DATE_RE.exec(token);
   if (!match) return [null, null];
   const [, day, month, yearRaw] = match;
   // A PDF made from photos whose period could not be read: a 4-digit year
   // says Western or Buddhist by itself (KKP prints its period in a boxed table
   // the reader cannot read). A 2-digit year still refuses below.
-  const fourAlone = facts.from_photo && !facts.period_from && !facts.period_to && yearRaw.length === 4;
+  // A business form that prints no period at all (K-BIZ, EXIM) prints 4-digit years.
+  const fourAlone = (facts.from_photo || profile?.yearsFourDigit) && !facts.period_from && !facts.period_to && yearRaw.length === 4;
   const [year, warning] = fourAlone
     ? [Number(yearRaw) >= 2500 ? Number(yearRaw) - BE_OFFSET : Number(yearRaw), null]
     : resolveYear(yearRaw, facts.period_from, facts.period_to);

@@ -9,6 +9,17 @@ export function parseAmount(token) {
   return Number(whole) * 100 + Number(frac);
 }
 
+// A balance an overdrawn account prints with a minus ("-2,591,999.57"). Only
+// profiles with signedBalances read it this way: elsewhere a leading minus is
+// not money as the reference reads it.
+export function parseSigned(token) {
+  if (typeof token === 'string' && token.startsWith('-')) {
+    const a = parseAmount(token.slice(1));
+    return a === null ? null : -a;
+  }
+  return parseAmount(token);
+}
+
 export function fmtMoney(satang) {
   const sign = satang < 0 ? '-' : '';
   const a = Math.abs(satang);

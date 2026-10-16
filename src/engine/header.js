@@ -1,7 +1,7 @@
 // The facts the bank printed at the top (and foot) of the statement - the
 // independent answer key every check is measured against.
-import { parseAmount } from './money.js';
-import { columnOf } from './profiles.js';
+import { parseAmount, parseSigned } from './money.js';
+import { columnOf, inWithdrawalColumn } from './profiles.js';
 import { FIELD_GAP, rowText } from './rows.js';
 import { periodDates } from './dates.js';
 
@@ -66,9 +66,11 @@ export function parseHeader(rows, profile, { photo = false } = {}) {
     deposit_total: null, deposit_count: null,
   };
 
+  // A bank that prints an overdrawn balance with a minus prints its closing so too.
+  const amountOf = profile.signedBalances ? parseSigned : parseAmount;
   for (const row of rows) {
     const text = rowText(row);
-    const amounts = row.map(w => parseAmount(w.text)).filter(a => a !== null);
+    const amounts = row.map(w => amountOf(w.text)).filter(a => a !== null);
 
     if (facts.period_from === null && has(text, marks.period)) {
       const dates = periodDates(text);
@@ -80,7 +82,7 @@ export function parseHeader(rows, profile, { photo = false } = {}) {
       const buckets = cellsByColumn(row, profile);
       const money = (buckets.amount ?? []).map(w => [w, parseAmount(w.text)]).filter(([, a]) => a !== null);
       if (money.length === 2) {
-        for (const [w, a] of money) facts[w.x1 < profile.amountSplitX ? 'withdraw_total' : 'deposit_total'] = a;
+        for (const [w, a] of money) facts[inWithdrawalColumn(w.x1, profile) ? 'withdraw_total' : 'deposit_total'] = a;
         const closing = (buckets.balance ?? []).map(w => parseAmount(w.text)).filter(a => a !== null);
         if (closing.length) facts.closing_stated = closing[closing.length - 1];
       }
@@ -112,6 +114,22 @@ export function parseHeader(rows, profile, { photo = false } = {}) {
     }
   }
 
+  // Facts a business form prints as a phrase, or with the label on one line and
+  // the figure on the next ("จำนวนเงินนำเข้าบัญชีทั้งหมด" / "14 รายการ (Items)
+  // 52,448,581.13"): read off the text of the whole statement, line by line.
+  if ((profile.patterns ?? []).length) {
+    const text = rows.map(rowText).join('\n');
+    for (const { re, keys } of profile.patterns) {
+      const match = re.exec(text);
+      if (!match) continue;
+      keys.forEach((key, i) => {
+        const value = match[i + 1];
+        if (value === undefined || facts[key] !== null) return;
+        facts[key] = patternValue(key, value);
+      });
+    }
+  }
+
   // The labelled value can stop short ('No.') or miss when the number sits
   // further from its label than FIELD_GAP. An account number has a shape, so
   // look for it - but only on a row that carries the account label, never in
@@ -136,5 +154,12 @@ export function parseHeader(rows, profile, { photo = false } = {}) {
     }
   }
   return facts;
+}
+function patternValue(key, value) {
+  if (['closing_stated', 'withdraw_total', 'deposit_total'].includes(key)) return parseSigned(value);
+  if (key.endsWith('_count')) return Number(value);
+  if (key.startsWith('period_')) return value.replace(/[.-]/g, '/');
+  if (key === 'account_no') return value.trim().replace(/\s+/g, '-');
+  return value;
 }
 const RANGE_RE = /\d{1,2}\/\d{1,2}\/\d{4}\s*-\s*\d{1,2}\/\d{1,2}\/\d{4}/;

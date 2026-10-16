@@ -1,7 +1,10 @@
-// The per-bank reading rules - a value-for-value copy of the private answer
-// key's bank_profiles.py (generated from it, so no Thai label was retyped).
+// The per-bank reading rules. The personal-account forms (KBANK ... BBL_REPORT
+// below) are a value-for-value copy of the private answer key's bank_profiles.py
+// (generated from it, so no Thai label was retyped); see bank_profiles.py for
+// each measurement. The BUSINESS forms at the end (Co 2026-10-16) exist here
+// only: each is checked against the bank's own CSV export and printed totals.
 // Every column bound is in PDF points from the left page edge, measured on a
-// real statement of that bank; see bank_profiles.py for each measurement.
+// real statement of that bank.
 // A word belongs to the column its CENTRE falls in (lo inclusive, hi exclusive).
 
 export const col = (name, lo, hi) => ({ name, lo, hi });
@@ -18,8 +21,23 @@ export function profile(p) {
   const marks = { total_items: [], totals_line: [], ...p.marks };
   return { dateOrder: 'dmy', dateStyle: 'numeric', balanceEveryRow: true,
            openingPrinted: true, remarkFields: null, untested: false, wrapReach: null, codeNames: {},
-           newestFirst: false, signedAmounts: false, timeSeconds: false, ...p, marks };
+           newestFirst: false, signedAmounts: false, timeSeconds: false,
+           // business forms (Co 2026-10-16), all off for the personal forms:
+           signedBalances: false,   // an overdrawn balance printed "-1,234.56"
+           depositFirst: false,     // the deposit column sits LEFT of the withdrawal column
+           normDate: null,          // a row's date as printed -> "dd/mm/yyyy" (or unchanged)
+           yearsFourDigit: false,   // 4-digit years say Western or Buddhist alone (no period printed)
+           periodFromRows: false,   // no period printed: the first and last lines' dates stand in
+           wrapNearest: null,       // points: a wrapped line belongs to the NEAREST row, above or below
+           leadChannel: false,      // the channel prints first and again inside the description
+           wrapStrip: [],           // labels dropped from wrapped detail lines ("Account Name:")
+           legendRe: null,          // a printed code legend ("BPKB - DEPOSIT THRU ...") names the codes
+           patterns: [],            // [{ re, keys }]: facts read off the header/footer text
+           ...p, marks };
 }
+
+// Is an amount printed at right edge x1 in the withdrawal column?
+export const inWithdrawalColumn = (x1, p) => (p.depositFirst ? x1 >= p.amountSplitX : x1 < p.amountSplitX);
 
 const KBANK = profile({
   key: "kbank", bank: "KBank (ธนาคารกสิกรไทย)",
@@ -288,8 +306,271 @@ const BBL_REPORT = profile({
   },
 });
 
+// ---- business-account forms (Co 2026-10-16) --------------------------------
+// Measured on one client's June 2026 statements; each checked line by line
+// against the bank's own CSV export where the bank gave one.
+
+const THAI_MONTHS = { 'ม.ค.': 1, 'ก.พ.': 2, 'มี.ค.': 3, 'เม.ย.': 4, 'พ.ค.': 5, 'มิ.ย.': 6,
+  'ก.ค.': 7, 'ส.ค.': 8, 'ก.ย.': 9, 'ต.ค.': 10, 'พ.ย.': 11, 'ธ.ค.': 12 };
+// '01-มิ.ย.-2569' -> '01/06/2569' (K-BIZ)
+function thaiMonthDate(text) {
+  const m = /^(\d{1,2})-([ก-๙.]+)-(\d{4})$/.exec(text);
+  const month = m && THAI_MONTHS[m[2]];
+  return month ? `${m[1].padStart(2, '0')}/${String(month).padStart(2, '0')}/${m[3]}` : text;
+}
+// '01.06.2026' -> '01/06/2026' (ttb)
+const dottedDate = text => (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(text) ? text.replace(/\./g, '/') : text);
+const MONEY = '(-?[\\d,]+\\.\\d\\d)';
+
+// SCB Business "Historical Statement" (รายการเดินบัญชีย้อนหลัง). A long
+// description prints half ABOVE its line and half below, 5pt each way, so a
+// wrapped line belongs to the nearest row. An overdrawn current account prints
+// its balance with a minus.
+const SCB_BIZ = profile({
+  key: "scbbiz", bank: "SCB Business (ไทยพาณิชย์ ธุรกิจ)",
+  // Column headings measured on the real PDF: the photo reader lines a photo up by these.
+  anchors: [{ text: "Date/Time", x0: 23.0, y0: 210.1 }, { text: "Withdrawal", x0: 201.1, y0: 210.1 }, { text: "Balance", x0: 377.5, y0: 210.1 }, { text: "Description", x0: 409.0, y0: 210.1 }],
+  columns: [
+    col("date", 15.0, 64.0),
+    col("time", 64.0, 88.0),
+    col("channel", 88.0, 118.0),       // the transaction code (X1, X2, QW...)
+    col("channel", 118.0, 150.0),
+    col("details", 150.0, 198.0),      // cheque number
+    col("amount", 198.0, 340.0),
+    col("balance", 340.0, 407.0),
+    col("description", 407.0, 600.0),
+  ],
+  amountSplitX: 266.0,
+  signedBalances: true,
+  wrapNearest: 12.0,
+  remarkFields: ["description", "details"],
+  patterns: [
+    { re: /\(Start\):\s*(\d{2}\/\d{2}\/\d{4})/, keys: ["period_from"] },
+    { re: /\(End\):\s*(\d{2}\/\d{2}\/\d{4})/, keys: ["period_to"] },
+    { re: new RegExp(`จำนวนเงินนำเข้าบัญชีทั้งหมด\\n(\\d+) รายการ \\(Items\\) ${MONEY}`), keys: ["deposit_count", "deposit_total"] },
+    { re: new RegExp(`จำนวนเงินที่หักบัญชีทั้งหมด\\n(\\d+) รายการ \\(Items\\) ${MONEY}`), keys: ["withdraw_count", "withdraw_total"] },
+  ],
+  marks: {
+    // the title in both languages and SCB's business call centre (an apostrophe in
+    // "SCB's" can print curly, so it is not relied on)
+    identify: [["Historical Statement", "รายการเดินบัญชีย้อนหลัง", "02-722-2222"]],
+    opening: ["ยอดยกมา"],
+    closing: ["ยอดยกไป"],
+    total_withdraw: [],
+    total_deposit: [],
+    period: [],
+    account_no: ["เลขที่บัญชี:"],
+    account_name: [],
+    branch: [],
+    footer: ["ยอดยกไป", "จำนวนเงินนำเข้าบัญชีทั้งหมด", "เอกสารนี้ไม่จำเป็นต้องมีลายเซ็น", "หน้าที่ (Page)"],
+    furniture_text: ["Balance Forward", "Date/Time", "ยอดเงินหักบัญชี", "Historical Statement", "Withdrawal (Debit)"],
+  },
+});
+
+// KBank K-BIZ statement (รายการเดินบัญชีเงินฝากกระแสรายวัน / ออมทรัพย์) - not the
+// personal KBank form. One amount column: withdrawals end at x 333, deposits
+// at x 364. Dates like 01-มิ.ย.-2569; no period is printed.
+const KBIZ = profile({
+  key: "kbiz", bank: "KBank K-BIZ (กสิกรไทย ธุรกิจ)",
+  // Column headings measured on the real PDF: the photo reader lines a photo up by these.
+  anchors: [{ text: "รายการ", x0: 150.0, y0: 170.8 }, { text: "เลขที่เช็ค", x0: 237.3, y0: 170.8 }, { text: "ถอนเงิน/ฝากเงิน", x0: 291.3, y0: 170.8 }, { text: "ยอดเงินคงเหลือ", x0: 376.1, y0: 170.8 }, { text: "ผู้ทำรายการ", x0: 482.6, y0: 170.8 }],
+  columns: [
+    col("date", 30.0, 86.0),
+    col("description", 86.0, 232.0),
+    col("details", 232.0, 285.0),      // cheque number
+    col("amount", 285.0, 372.0),
+    col("balance", 372.0, 437.0),
+    col("channel", 437.0, 600.0),      // branch code, teller, time
+  ],
+  amountSplitX: 348.0,
+  signedBalances: true,
+  normDate: thaiMonthDate,
+  yearsFourDigit: true,
+  periodFromRows: true,
+  remarkFields: ["description", "details"],
+  marks: {
+    identify: ["รวมรายการด้านการถอนเงิน", "รวมรายการด้านการฝากเงิน"],
+    opening: ["ยอดยกมา"],
+    closing: ["ยอดยกไป"],
+    total_withdraw: ["รวมรายการด้านการถอนเงิน"],
+    total_deposit: ["รวมรายการด้านการฝากเงิน"],
+    period: [],
+    account_no: ["เลขที่บัญชีเงินฝาก"],
+    account_name: [],
+    branch: ["สาขาเจ้าของบัญชี"],
+    footer: ["ยอดยกไป", "รวมรายการด้าน", "วันที่-เวลา", "พิมพ์โดย", "K-BIZ Contact Center"],
+    furniture_text: ["STATEMENT OF", "ยอดเงินคงเหลือ", "ผู้ทำรายการ", "พิมพ์โดย", "K-BIZ"],
+  },
+});
+
+// ttb business one (รายการเคลื่อนไหวทางบัญชี). Dates 01.06.2026; the channel
+// ("business one", "KBANK") prints first and again inside the description;
+// the totals and closing are on the last page.
+const TTB_BIZ = profile({
+  key: "ttbbiz", bank: "ttb business one (ทีทีบี ธุรกิจ)",
+  // Column headings measured on the real PDF: the photo reader lines a photo up by these.
+  anchors: [{ text: "เลขที่เช็ค", x0: 238.1, y0: 261.0 }, { text: "ฝาก", x0: 400.3, y0: 261.0 }, { text: "ยอดคงเหลือ", x0: 517.3, y0: 257.7 }],
+  columns: [
+    col("date", 20.0, 76.0),
+    col("time", 76.0, 118.0),
+    col("description", 118.0, 330.0),
+    col("amount", 330.0, 490.0),
+    col("balance", 490.0, 570.0),
+  ],
+  amountSplitX: 440.0,
+  signedBalances: true,
+  timeSeconds: true,
+  normDate: dottedDate,
+  leadChannel: true,
+  remarkFields: ["description"],
+  patterns: [
+    { re: /(\d{2}\.\d{2}\.\d{4}) - (\d{2}\.\d{2}\.\d{4})/, keys: ["period_from", "period_to"] },
+    { re: /เลขที่บัญชี:[^\n]*\n[^\n]*?(\d{3} \d \d{5} \d)/, keys: ["account_no"] },
+    { re: new RegExp(`ยอดรวมเงินถอนจากบัญชี:\\s*(\\d+)\\s+${MONEY}`), keys: ["withdraw_count", "withdraw_total"] },
+    { re: new RegExp(`ยอดรวมเงินฝากเข้าบัญชี:\\s*(\\d+)\\s+${MONEY}`), keys: ["deposit_count", "deposit_total"] },
+    { re: new RegExp(`เงินคงเหลือบัญชี ณ วันที่[^\\n]*\\n${MONEY}`), keys: ["closing_stated"] },
+  ],
+  marks: {
+    identify: [["รายการเคลื่อนไหวทางบัญชี", "วันที่ออกใบแจ้งรายการ"]],
+    opening: ["ยอดคงเหลือยกมา"],
+    closing: [],
+    total_withdraw: [],
+    total_deposit: [],
+    period: [],
+    account_no: [],
+    account_name: [],
+    branch: [],
+    footer: ["ยอดเงินคงเหลือยกไป", "พิมพ์โดย", "ยอดรวมเงินถอนจากบัญชี"],
+    furniture_text: ["ยอดคงเหลือยกมา", "ยอดเงินคงเหลือยกไป", "วันที่ทำรายการ", "พิมพ์โดย"],
+  },
+});
+
+// UOB corporate account statement ("Account Details" / "Movement Details").
+// Deposits print LEFT of withdrawals, each row prints both (one is 0.00). The
+// row's date is the STATEMENT date (Co 2026-10-16: the printed statement
+// date, not the value date). The header's Ledger Balance is the balance on
+// the PRINT date - never read as the closing.
+const UOB_BIZ = profile({
+  key: "uobbiz", bank: "UOB Business (ยูโอบี ธุรกิจ)",
+  // Column headings measured on the real PDF: the photo reader lines a photo up by these.
+  anchors: [{ text: "Value", x0: 93.0, y0: 346.6 }, { text: "Description", x0: 198.3, y0: 346.6 }, { text: "Deposit", x0: 303.6, y0: 346.6 }, { text: "Withdrawal", x0: 382.6, y0: 346.6 }, { text: "Balance", x0: 461.6, y0: 346.6 }],
+  columns: [
+    col("date", 30.0, 88.0),
+    col("value_date", 88.0, 142.0),
+    col("time", 142.0, 195.0),
+    col("description", 195.0, 300.0),
+    col("amount", 300.0, 450.0),
+    col("balance", 450.0, 560.0),
+  ],
+  amountSplitX: 370.0,
+  depositFirst: true,
+  openingPrinted: false,
+  signedBalances: true,
+  timeSeconds: true,
+  remarkFields: ["description"],
+  patterns: [
+    { re: new RegExp(`Total in Account Currency ${MONEY} ${MONEY}`), keys: ["deposit_total", "withdraw_total"] },
+  ],
+  marks: {
+    identify: [["Movement Details", "Ledger Balance", "Total in Account Currency"]],
+    opening: [],
+    closing: [],
+    total_withdraw: [],
+    total_deposit: [],
+    period: ["Movement Details"],
+    account_no: ["Account"],
+    account_name: [],
+    branch: [],
+    footer: ["Total in Account Currency", "Note:", "Balances and details"],
+    furniture_text: ["Movement Details", "Ledger Balance", "Transaction Description"],
+  },
+});
+
+// EXIM Bank (ธนาคารเพื่อการส่งออกและนำเข้าแห่งประเทศไทย). Its Thai prints with
+// a broken font (เง)น), so it is told by its address and tax number; the
+// rows are in English codes, named by the legend on the last page. No period.
+const EXIM = profile({
+  key: "exim", bank: "EXIM Bank (ธนาคารเพื่อการส่งออกฯ)",
+  // Column headings measured on the real PDF: the photo reader lines a photo up by these.
+  anchors: [{ text: "เดือน", x0: 37.1, y0: 175.2 }, { text: "รายการ", x0: 85.7, y0: 175.2 }, { text: "เลขที่อางอิง", x0: 164.7, y0: 175.2 }, { text: "ยอดคงเหลือ", x0: 501.8, y0: 175.2 }],
+  columns: [
+    col("date", 15.0, 75.0),
+    col("description", 75.0, 125.0),   // the code (BPKB, INP...)
+    col("details", 125.0, 220.0),      // the reference
+    col("amount", 270.0, 480.0),
+    col("balance", 480.0, 590.0),
+  ],
+  amountSplitX: 400.0,
+  signedBalances: true,
+  yearsFourDigit: true,
+  periodFromRows: true,
+  remarkFields: ["description", "details"],
+  legendRe: /\b([A-Z][A-Z#]{1,4}) - ([A-Z0-9/().#,-]+(?: [A-Z0-9/().#,-]+)*?)(?= [A-Z][A-Z#]{1,4} - |$)/g,
+  patterns: [
+    { re: new RegExp(`TOTAL DR (\\d+) ${MONEY} THB TOTAL CR (\\d+) ${MONEY}`), keys: ["withdraw_count", "withdraw_total", "deposit_count", "deposit_total"] },
+  ],
+  marks: {
+    identify: ["อาคารเอ็กซิม", "0994000165927"],
+    opening: ["ยอดยกมา"],
+    closing: ["ยอดยกไป"],
+    total_withdraw: [],
+    total_deposit: [],
+    period: [],
+    account_no: ["เลขที่บัญชี"],
+    account_name: [],
+    branch: [],
+    footer: ["ยอดยกไป", "PAGE DR", "TOTAL DR", "คำเตือน"],
+    furniture_text: ["ยอดยกมา", "ยอดยกไป", "PAGE DR", "TOTAL DR"],
+  },
+});
+
+// "ACCOUNT ACTIVITY HISTORY REPORT" - the bank does not print its own name
+// (ask the team which bank). The other party's bank, account and name print on
+// lines under each transaction. No brought-forward line: the printed totals
+// confirm the opening worked back.
+const ACT_HIST = profile({
+  key: "acthist", bank: "Account Activity History Report (ไม่มีชื่อธนาคาร)",
+  // Column headings measured on the real PDF: the photo reader lines a photo up by these.
+  anchors: [{ text: "Description", x0: 138.8, y0: 105.4 }, { text: "Debit", x0: 295.8, y0: 105.4 }, { text: "Credit", x0: 352.3, y0: 105.4 }, { text: "Balance", x0: 414.2, y0: 105.4 }, { text: "Channel", x0: 463.0, y0: 105.4 }],
+  columns: [
+    col("date", 15.0, 57.0),
+    col("value_date", 57.0, 93.0),
+    col("description", 93.0, 218.0),
+    col("channel", 218.0, 240.0),      // the transaction code
+    col("details", 240.0, 290.0),      // cheque number
+    col("amount", 290.0, 400.0),
+    col("balance", 400.0, 460.0),
+    col("channel", 460.0, 600.0),      // channel, terminal, branch
+  ],
+  amountSplitX: 345.0,
+  openingPrinted: false,
+  signedBalances: true,
+  wrapStrip: ["Bank/Branch:", "Account Number:", "Account Name:", "Reference:"],
+  remarkFields: ["description"],
+  patterns: [
+    { re: new RegExp(`Total Debit : ${MONEY}`), keys: ["withdraw_total"] },
+    { re: new RegExp(`Total Credit : ${MONEY}`), keys: ["deposit_total"] },
+  ],
+  marks: {
+    identify: ["ACCOUNT ACTIVITY HISTORY REPORT"],
+    opening: [],
+    closing: [],
+    total_withdraw: [],
+    total_deposit: [],
+    period: ["From:"],
+    account_no: ["Account"],
+    account_name: [],
+    branch: [],
+    footer: ["Total Debit", "Total Credit", "Page"],
+    furniture_text: ["ACCOUNT ACTIVITY", "Tran Date", "Total Debit", "Total Credit"],
+  },
+});
+
+// The business forms come first: each is told by marks its personal cousin
+// never prints, and K-BIZ carries the personal KBank's footer too.
 // bblreport before bbl: the report's footer carries BBL's identifying name too.
-export const PROFILES = { kbank: KBANK, scb: SCB, ktb: KTB, uob: UOB, bblreport: BBL_REPORT, bbl: BBL, kkp: KKP, ktbcorp: KTB_CORP };
+export const PROFILES = { scbbiz: SCB_BIZ, kbiz: KBIZ, ttbbiz: TTB_BIZ, uobbiz: UOB_BIZ, exim: EXIM, acthist: ACT_HIST,
+  kbank: KBANK, scb: SCB, ktb: KTB, uob: UOB, bblreport: BBL_REPORT, bbl: BBL, kkp: KKP, ktbcorp: KTB_CORP };
 
 
 export function columnOf(p, x0, x1) {
@@ -299,8 +580,9 @@ export function columnOf(p, x0, x1) {
 }
 
 // Which bank produced this statement, by its own header/footer fingerprints.
+// A mark given as a list needs every one of its parts.
 export function identify(text) {
   for (const p of Object.values(PROFILES))
-    if (p.marks.identify.some(m => text.includes(m))) return p;
+    if (p.marks.identify.some(m => (Array.isArray(m) ? m.every(x => text.includes(x)) : text.includes(m)))) return p;
   return null;
 }

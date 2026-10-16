@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import { PROFILES, identify, columnOf } from '../src/engine/profiles.js';
 
 test('the profiles in the Python order (the BBL Transaction Report before the BBL statement)', () => {
-  assert.deepEqual(Object.keys(PROFILES), ['kbank', 'scb', 'ktb', 'uob', 'bblreport', 'bbl', 'kkp', 'ktbcorp']);
+  // The business forms (JS only, Co 2026-10-16) come first: K-BIZ carries the
+  // personal KBank's footer, so it must be tried before it.
+  assert.deepEqual(Object.keys(PROFILES), ['scbbiz', 'kbiz', 'ttbbiz', 'uobbiz', 'exim', 'acthist',
+    'kbank', 'scb', 'ktb', 'uob', 'bblreport', 'bbl', 'kkp', 'ktbcorp']);
 });
 
 test('a column owns a word by its centre', () => {

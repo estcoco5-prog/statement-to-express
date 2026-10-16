@@ -34,12 +34,38 @@ export function roleOf(cell) {
   return null;
 }
 
+// A bank's own export has several columns a heading word can fit (Co
+// 2026-10-16): SCB "Currency Code | Tr Description | Description", ttb
+// "รหัสประเภทรายการ | ช่องทางทำรายการ | รายละเอียดการทำธุรกรรม". The description is
+// the column that best names the transaction, not the first from the left;
+// the date is the posting date, not the value / effective date.
+// Lower is better; ties go to the leftmost.
+const NOT_DESCRIPTION = ['currency', 'สกุลเงิน', 'account', 'บัญชี', 'branch', 'สาขา', 'channel', 'ช่องทาง',
+  'cheque', 'เช็ค', 'reference', 'อ้างอิง', 'terminal', 'เลขที่', 'number'];
+function rankOf(role, cell) {
+  const t = squash(cell);
+  if (role === 'description') {
+    if (NOT_DESCRIPTION.some(w => t.includes(w))) return 4;
+    if (['code', 'คำย่อ', 'รหัส'].some(w => t.includes(w))) return 3;
+    if (['description', 'รายละเอียด', 'details', 'particulars', 'narrative', 'คำอธิบาย', 'รายการ'].includes(t)) return 0;
+    if (['description', 'รายละเอียด', 'detail', 'particular', 'narrative', 'คำอธิบาย'].some(w => t.includes(w))) return 1;
+    return 2;
+  }
+  if (role === 'date') return ['value', 'มีผล', 'effective'].some(w => t.includes(w)) ? 1 : 0;
+  return 0;
+}
+
 /** The heading row and its columns: { header: row index or -1, map: { role: column } } */
 export function findColumns(rows) {
   let best = { header: -1, map: {}, score: 0 };
   rows.slice(0, 25).forEach((row, i) => {
-    const map = {};
-    row.forEach((cell, c) => { const role = roleOf(cell); if (role && map[role] === undefined) map[role] = c; });
+    const map = {}, rank = {};
+    row.forEach((cell, c) => {
+      const role = roleOf(cell);
+      if (!role) return;
+      const r = rankOf(role, cell);
+      if (map[role] === undefined || r < rank[role]) { map[role] = c; rank[role] = r; }
+    });
     const score = Object.keys(map).length + (map.balance !== undefined ? 1 : 0);
     if (score > best.score && Object.keys(map).length >= 2) best = { header: i, map, score };
   });
@@ -132,7 +158,8 @@ function readDate(v) {
     if (swapped) return { iso: swapped, note: `"${t}" only makes sense month-first - check the date` };
     return { iso: null, note: `"${t}" is not a real date` };
   }
-  m = /^(\d{1,2}) ?([a-z]{3}|[ก-๎]{1,3}\.[ก-๎]{1,2}\.?)[a-z]* ?(\d{2}|\d{4})?$/i.exec(t);
+  // "01 Jun 2026", "01 มิ.ย. 69", and with dashes "01-มิ.ย.-2569" (KBank K-BIZ .xls)
+  m = /^(\d{1,2})[ -]?([a-z]{3}|[ก-๎]{1,3}\.[ก-๎]{1,2}\.?)[a-z]*[ -]?(\d{2}|\d{4})?$/i.exec(t);
   if (m) {
     const key = m[2].toLowerCase().slice(0, 3);
     const mo = MONTHS[key] ?? MONTHS[m[2]] ?? MONTHS[`${m[2]}.`.replace('..', '.')];
@@ -216,8 +243,13 @@ export function tableLines(rows, map, { file = 1, header = -1, opening = null, l
       else { amount = x.cents; sign = side ?? x.sign ?? (x === am && signedColumn ? '+' : null); }
     }
     if (bal.bad) notes.push(`"${bal.bad}" could not be read as a balance (${where})`);
+    // No date, no balance, money in the withdrawal / deposit columns: perhaps the
+    // bank's totals line (UOB's "T" row). table/statement.js decides - it is used
+    // as a check only if it equals the lines above it, else stays a line to check.
+    const totals = date.blank && bal.blank && (!wd.blank || !dp.blank) && am.blank && am2.blank
+      && [wd, dp].every(x => x.blank || x.cents !== null) ? { wd: wd.blank ? 0 : wd.cents, dp: dp.blank ? 0 : dp.cents } : null;
     lines.push({
-      page: file, line: i + 1, where, description: desc,
+      page: file, line: i + 1, where, description: desc, ...(totals ? { totals } : {}),
       amount, sign, balance: bal.cents === null ? null : bal.sign === '-' ? -bal.cents : bal.cents,
       date: date.iso, dateNote: [date.note ? `${date.note} (${where})` : null, doubts[i] ?? null].filter(Boolean).join('; ') || null, notes, eitherWay: date.eitherWay ?? null, dateKind: date.kind ?? null, dayOver12: !!date.dayOver12,
     });
