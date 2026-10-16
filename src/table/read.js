@@ -12,7 +12,7 @@ const u32 = (b, o) => (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 
 
 // Limits, so a broken or hostile file cannot freeze the page (G8 Excel review
 // S4). A real statement page is far below every one of them.
-export const LIMITS = { fileBytes: 20e6, partBytes: 50e6, totalBytes: 100e6, sheets: 50, columns: 256, rows: 20000 };
+export const LIMITS = { fileBytes: 20e6, partBytes: 50e6, totalBytes: 100e6, sheets: 50, columns: 256, rows: 100000 };   // a busy account's year: TTB printed 4,474 lines in one month
 const tooBig = what => new TableError('too-big', `the file is too large (${what})`);
 
 // Unpacks one part, stopping as soon as it grows past the limit.

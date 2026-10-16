@@ -172,7 +172,7 @@ function show(entries) {
   made = [];
   const reviewBytes = new Map();
   // Each file in both languages; the one saved is the page's language at the click.
-  const review = s => buildWorkbook(s.rows, s.opening, s.closing, s.facts, s.checks, s.profile, s.name, s.fromPhoto);
+  const review = s => buildWorkbook(s.rows, s.opening, s.closing, s.facts, s.checks, s.profile, s.name, s.fromPhoto, s.fromSpreadsheet);
   for (const s of statements) reviewBytes.set(s, { en: writeXlsx(review(s)), th: writeXlsx(thaiSheets(review(s))) });
   const results = {
     groups: groups.map((g, i) => ({
@@ -1038,6 +1038,7 @@ $('tableGo').addEventListener('click', async () => {
       closingText: $('tableClosing').value,
       openingText: $('tableOpening').value,
     });
+    statement.fromSpreadsheet = true;    // its Review file says so, not "photo"
     $('tableSkipped').hidden = !statement.skipped.length;
     const shownSkips = statement.skipped.slice(0, 8).join('; ') + (statement.skipped.length > 8 ? ' …' : '');
     setText($('tableSkipped'), statement.skipped.length

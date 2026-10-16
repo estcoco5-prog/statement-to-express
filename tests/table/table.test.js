@@ -2,7 +2,7 @@
 // by the balance chain. Every figure is invented.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readCsv, readXlsx } from '../../src/table/read.js';
+import { readCsv, readXlsx, LIMITS } from '../../src/table/read.js';
 import { findColumns, moneyCell, dateCell, tableLines } from '../../src/table/columns.js';
 import { tableStatement } from '../../src/table/statement.js';
 import { partialRows, rowsToCheck, statusOf } from '../../src/engine/statement.js';
@@ -206,7 +206,8 @@ test('a hostile file is refused, not left to freeze the page', async () => {
   const rows = await readXlsx(xlsx('<sheetData>' + '<row><c r="A1"><v>1</v></c>'.repeat(19000) + '</sheetData>'));
   assert.equal(rows[0].rows.length, 19000);
   assert.ok(Date.now() - t < 2000);
-  assert.throws(() => readCsv('a\n'.repeat(20001)), { code: 'too-big' });
+  assert.throws(() => readCsv('a\n'.repeat(LIMITS.rows + 1)), { code: 'too-big' });
+  assert.equal(readCsv('a\n'.repeat(LIMITS.rows))[0].rows.length, LIMITS.rows);   // a busy account's year fits
   assert.throws(() => readCsv(`${'x,'.repeat(300)}\n`), { code: 'too-big' });
 });
 

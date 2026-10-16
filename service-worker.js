@@ -3,7 +3,7 @@
  * what makes a browser notice there is something new (the Pic-to-PDF pattern).
  * Only the page's own files are cached - never a statement or a result.
  */
-const CACHE = 'statement-to-express-v18';
+const CACHE = 'statement-to-express-v19';
 const ASSETS = [
   './',
   './index.html',
@@ -63,8 +63,11 @@ const ASSETS = [
   './vendor/pdfjs/pdf.worker.min.mjs',
 ];
 
+// Each file fetched fresh from the site (cache: 'reload'): GitHub Pages lets a
+// browser keep a file for 10 minutes, so a plain fetch could put the OLD file
+// into the new version's offline copy and keep it there (G8 #10 follow-up a).
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS.map((url) => new Request(url, { cache: 'reload' })))));
 });
 
 self.addEventListener('activate', (e) => {

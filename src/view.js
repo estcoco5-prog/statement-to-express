@@ -84,8 +84,8 @@ export const MESSAGES = {
     en: 'This .xls file could not be read. Open it in Excel and save it as .xlsx.',
   },
   'too-big': {
-    th: 'ไฟล์นี้ใหญ่หรือกว้างเกินกว่าใบแจ้งยอดปกติ (เกิน 20 MB, 256 คอลัมน์ หรือ 20,000 แถว) จึงไม่เปิด',
-    en: 'This file is larger than any statement page (over 20 MB, 256 columns or 20,000 rows), so it was not opened.',
+    th: 'ไฟล์นี้ใหญ่หรือกว้างเกินกว่าใบแจ้งยอดปกติ (เกิน 20 MB, 256 คอลัมน์ หรือ 100,000 แถว) จึงไม่เปิด',
+    en: 'This file is larger than any statement page (over 20 MB, 256 columns or 100,000 rows), so it was not opened.',
   },
   'date-1904': {
     th: 'ไฟล์นี้ใช้การนับวันที่แบบปี 1904 (Excel บน Mac รุ่นเก่า) วันที่จะผิดไป 4 ปี เปิดใน Excel แล้วบันทึกเป็น CSV แล้วเลือกไฟล์ CSV แทน',

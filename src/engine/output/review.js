@@ -4,7 +4,7 @@ import { Sheet, Cell, money, HEADER, BOLD, BAD, PLAIN, MONEY, MONEY_BOLD, DATE }
 import { excelSerial } from './express.js';
 import { parseDate } from '../dates.js';
 import { buildDaily } from '../daily.js';
-import { caveatFirst, PHOTO_CAVEAT } from '../general.js';
+import { caveatFirst, PHOTO_CAVEAT, SPREADSHEET_CAVEAT } from '../general.js';
 
 const basename = name => String(name).split(/[\\/]/).pop();
 // A real Excel date shown DD/MM/YYYY, like the Express template; a date that
@@ -15,7 +15,7 @@ const dateCell = stamp => {
 };
 const moneyOrBlank = v => (v !== null && v !== undefined ? money(v, MONEY) : new Cell('', MONEY));
 
-export function buildWorkbook(rows, opening, closingComputed, facts, checks, profile, source, fromPhoto = false) {
+export function buildWorkbook(rows, opening, closingComputed, facts, checks, profile, source, fromPhoto = false, fromSpreadsheet = false) {
   // Show the period ends in the same ISO form as the rows, so it sorts.
   const iso = stamp => {
     if (!stamp) return '';
@@ -23,7 +23,7 @@ export function buildWorkbook(rows, opening, closingComputed, facts, checks, pro
   };
 
   // From photos, a last column names the photo page of each row: where to check it.
-  const pageCol = fromPhoto ? [new Cell('Photo page', HEADER)] : [];
+  const pageCol = fromPhoto ? [new Cell(fromSpreadsheet ? 'File page' : 'Photo page', HEADER)] : [];
   const blank = fromPhoto ? [''] : [];
   const tx = new Sheet('Transactions', { widths: [12, 7, 26, 14, 14, 15, 22, 40, 34, ...(fromPhoto ? [11] : [])], freezeRows: 1 });
   tx.add(...['Date', 'Time', 'Description', 'Withdrawal', 'Deposit', 'Balance', 'Channel', 'Details', 'Check']
@@ -61,7 +61,7 @@ export function buildWorkbook(rows, opening, closingComputed, facts, checks, pro
     money(closingComputed, MONEY_BOLD), '');
 
   const proof = new Sheet('Proof', { widths: [46, 10, 52] });
-  if (fromPhoto) proof.add(new Cell(PHOTO_CAVEAT, BAD));
+  if (fromPhoto) proof.add(new Cell(fromSpreadsheet ? SPREADSHEET_CAVEAT : PHOTO_CAVEAT, BAD));
   caveatFirst(proof, profile);
   proof.add(new Cell('How this file was checked', BOLD));
   proof.add('');

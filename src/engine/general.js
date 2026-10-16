@@ -43,6 +43,12 @@ export const UNTESTED_CAVEAT = 'UNTESTED BANK - this bank has not been tested ye
 export const PHOTO_CAVEAT = 'READ FROM A PHOTO - compare dates and descriptions to the photo by eye / ' +
   'อ่านจากรูปถ่าย - ตรวจวันที่และรายละเอียดเทียบกับรูปด้วยตา';
 
+// A statement from the Excel / CSV card: a bank's own download, or a sheet
+// another tool made from pictures - this app cannot tell which, so the
+// caveat names both (it said "photo" before 2026-10-16, wrong for a download).
+export const SPREADSHEET_CAVEAT = 'READ FROM A SPREADSHEET (a bank download, or one made from pictures) - amounts are proved by the balance; compare dates and descriptions to the original by eye / ' +
+  'อ่านจากไฟล์ Excel/CSV (ไฟล์ที่ดาวน์โหลดจากธนาคาร หรือไฟล์ที่แปลงจากรูป) - ยอดเงินตรวจด้วยยอดคงเหลือแล้ว ตรวจวันที่และรายละเอียดเทียบกับต้นฉบับด้วยตา';
+
 // An untested bank's Proof sheet opens with the caveat, in red.
 export function caveatFirst(proof, p) {
   if (p.untested) proof.add(new Cell(UNTESTED_CAVEAT, BAD));

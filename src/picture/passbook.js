@@ -20,7 +20,7 @@ function sameDayAround(lines) {
     let a = i - 1, b = i + 1;
     while (a >= 0 && !body[a].date) a--;
     while (b < body.length && !body[b].date) b++;
-    if (a >= 0 && b < body.length && sure(body[a]) && sure(body[b]) && body[a].date === body[b].date) out.set(l, { date: body[a].date });
+    if (a >= 0 && b < body.length && sure(body[a]) && sure(body[b]) && body[a].date === body[b].date) out.set(l, { date: body[a].date, from: [body[a], body[b]] });
   });
   return out;
 }
@@ -31,13 +31,22 @@ function sameDayAround(lines) {
  * @returns tables [{ name, rows, other, map, dayFirst, dateEvidence, doubts, hints } | { name, error, rows: [] }] -
  *   `doubts[r]` = { date, note }: the reader was unsure of row r's date as read (`date`); it holds the
  *   row from green and from Express until the person changes that date on screen.
- *   `hints[r]` = { date, note }: said in the Why column while row r's date reads `date` ('' = not
- *   read); never changes a cell or a light.
+ *   `hints[r]` = { date, note, around, from }: said in the Why column while row r's date reads `date`
+ *   ('' = not read) AND the two lines it came from (`from`: [{ p, r }] - page index, row) still
+ *   read `around`; never changes a cell or a light.
  */
 export function passbookTables(lines, names) {
   const sameDay = sameDayAround(lines);
   // the book's first line read, on whatever page (G8 #6 N1): the same rule as sameDayAround
   const first = lines.find(l => l.date || l.amount || l.balance);
+  // where each line lands - page index and row - so a suggestion can name the
+  // two lines it came from, wherever they are (G8 #10 N2: it went stale when
+  // the person changed one of them)
+  const at = new Map();
+  names.forEach((_, p) => {
+    let r = 0;
+    for (const l of lines.filter(x => x.page === p + 1)) if (l.date || l.amount || l.balance) at.set(l, { p, r: ++r });
+  });
   return names.map((name, p) => {
     const rows = [HEADING.slice()];
     const doubts = [null], hints = [null];
@@ -56,7 +65,8 @@ export function passbookTables(lines, names) {
       const unsure = l.date && l.dateMargin !== null && l.dateMargin !== undefined && l.dateMargin < DATE_SURE;
       doubts.push(unsure ? { date: l.date, note: `the reader was unsure of the date (reads ${l.date}) - check the date` } : null);
       hints.push(!around || l.date === around.date ? null
-        : { date: l.date ?? '', note: `the lines either side both read ${around.date} - it may be ${around.date}; check the paper` });
+        : { date: l.date ?? '', note: `the lines either side both read ${around.date} - it may be ${around.date}; check the paper`,
+          around: around.date, from: around.from.map(x => at.get(x)) });
     }
     // a page with nothing read on it is said, not passed on as an empty table (G8 N3)
     if (rows.length === 1) return { name, error: 'nothing was read on this page - check it is a printed passbook page, flat and whole', rows: [], other: [] };

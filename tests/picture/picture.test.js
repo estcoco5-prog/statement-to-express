@@ -482,6 +482,18 @@ test('a passbook date between two same-day lines is only suggested, never filled
   assert.ok(!/it may be/.test(pictureLights([t], { openingText: '1,000.00' }).rows[0][3].why));
 });
 
+// G8 #10 N2: a suggestion rests on its two neighbours; once the person
+// corrects one of them, "the lines either side both read ..." is no longer
+// true and is not said.
+test('a passbook date suggestion goes when one of the two lines it came from is changed', () => {
+  const [t] = passbookTables(DAYS, ['book - page 1']);
+  assert.match(pictureLights([t], { openingText: '1,000.00' }).rows[0][3].why, /it may be 07\/03\/68/);
+  t.rows[2][0] = '08/03/68';                      // the line above, corrected on screen
+  assert.ok(!/either side/.test(pictureLights([t], { openingText: '1,000.00' }).rows[0][3].why));
+  t.rows[2][0] = '07/03/68';                      // put back: said again
+  assert.match(pictureLights([t], { openingText: '1,000.00' }).rows[0][3].why, /it may be 07\/03\/68/);
+});
+
 test('no suggestion when a line either side was read unsurely, or the two days differ, or only the brought-forward line is above', () => {
   const unsure = DAYS.map(l => (l.line === 2 ? { ...l, dateMargin: 0.01 } : l));
   assert.equal(passbookTables(DAYS, ['b'])[0].hints[3]?.date, '', 'the case itself is suggested');

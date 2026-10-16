@@ -124,3 +124,19 @@ test('the Excel card refuses this app\'s own Review workbook, whole, one sheet, 
   assert.ok((await readTableFile('bank.csv', bank)).length);
   assert.ok((await readTableFile('page1.csv', new TextEncoder().encode(CSV))).length);
 });
+
+// The Excel / CSV card's Review file names a spreadsheet, not a photo: a bank's
+// own download was called "READ FROM A PHOTO" before 2026-10-16.
+test('a Review file from the Excel / CSV card says spreadsheet, in English and in Thai', () => {
+  const build = spreadsheet => buildWorkbook(statement.rows, statement.opening, statement.closing, statement.facts,
+    statement.checks, statement.profile, statement.name, true, spreadsheet);
+  const proofOf = sheets => sheets.find(s => /Proof|การตรวจสอบ/.test(s.name));
+  const en = build(true);
+  assert.match(proofOf(en).rows[0][0].value, /^READ FROM A SPREADSHEET/);
+  assert.equal(en[0].rows[0].at(-1).value, 'File page');
+  const th = thaiSheets(build(true));
+  assert.match(proofOf(th).rows[0][0].value, /^อ่านจากไฟล์ Excel\/CSV/);
+  assert.equal(th[0].rows[0].at(-1).value, 'หน้าไฟล์');
+  // pictures keep their photo wording
+  assert.match(proofOf(build(false)).rows[0][0].value, /^READ FROM A PHOTO/);
+});

@@ -14,7 +14,7 @@ const FIXED = {
   // Review file - Transactions / Daily
   'Date': 'วันที่', 'Time': 'เวลา', 'Description': 'รายการ', 'Withdrawal': 'ถอน', 'Deposit': 'ฝาก',
   'Balance': 'ยอดคงเหลือ', 'Channel': 'ช่องทาง', 'Details': 'รายละเอียด', 'Check': 'ผลตรวจ',
-  'Photo page': 'หน้ารูป', 'Opening balance': 'ยอดยกมา', 'Closing balance': 'ยอดคงเหลือปลายงวด',
+  'Photo page': 'หน้ารูป', 'File page': 'หน้าไฟล์', 'Opening balance': 'ยอดยกมา', 'Closing balance': 'ยอดคงเหลือปลายงวด',
   'Transactions': 'จำนวนรายการ', 'Withdrawals': 'ถอน', 'Deposits': 'ฝาก', 'Net change': 'เปลี่ยนแปลงสุทธิ',
   'OK': 'ผ่าน', 'PASS': 'ผ่าน', 'FAIL': 'ไม่ผ่าน',
   // Proof sheets
@@ -43,6 +43,8 @@ const FIXED = {
   'Batch check': 'การตรวจรวมทุกใบ',
   '(not read)': '(อ่านไม่ได้)', '(not read - this file holds one statement)': '(อ่านไม่ได้ - ไฟล์นี้มีใบแจ้งยอดใบเดียว)',
   // the caveats, written "English / ไทย": the Thai half
+  'READ FROM A SPREADSHEET (a bank download, or one made from pictures) - amounts are proved by the balance; compare dates and descriptions to the original by eye / อ่านจากไฟล์ Excel/CSV (ไฟล์ที่ดาวน์โหลดจากธนาคาร หรือไฟล์ที่แปลงจากรูป) - ยอดเงินตรวจด้วยยอดคงเหลือแล้ว ตรวจวันที่และรายละเอียดเทียบกับต้นฉบับด้วยตา':
+    'อ่านจากไฟล์ Excel/CSV (ไฟล์ที่ดาวน์โหลดจากธนาคาร หรือไฟล์ที่แปลงจากรูป) - ยอดเงินตรวจด้วยยอดคงเหลือแล้ว ตรวจวันที่และรายละเอียดเทียบกับต้นฉบับด้วยตา',
   'READ FROM A PHOTO - compare dates and descriptions to the photo by eye / อ่านจากรูปถ่าย - ตรวจวันที่และรายละเอียดเทียบกับรูปด้วยตา':
     'อ่านจากรูปถ่าย - ตรวจวันที่และรายละเอียดเทียบกับรูปด้วยตา',
   // Rows to check

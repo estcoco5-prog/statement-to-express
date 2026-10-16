@@ -155,9 +155,11 @@ export function pictureLights(tables, { openingText = '', closingText = '', name
     }
     // A passbook date suggested from the lines either side (never filled in):
     // the same goes for a date read otherwise; said while the date reads as then.
+    // ...and while the two lines it came from still read that day (G8 #10 N2)
     const hint = read[r.page - 1].t.hints?.[r.line - 1];
     const dateNow = dateIn(read[r.page - 1].t, r.line - 1);
-    if (hint && dateNow === hint.date) why = `${why}; ${hint.note}`;
+    const sourcesStand = (hint?.from ?? []).every(f => f && dateIn(tables[f.p], f.r) === hint.around);
+    if (hint && dateNow === hint.date && sourcesStand) why = `${why}; ${hint.note}`;
     // An amount not read, between two balances that were: the change is said,
     // never filled in - the line stays held [CO-DECIDED 2026-10-09].
     if (r.amount === null && r.balance !== null && !(i === 0 && s.facts.opening_derived)) {
