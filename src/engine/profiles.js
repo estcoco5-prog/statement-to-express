@@ -1,8 +1,8 @@
 // The per-bank reading rules. The personal-account forms (KBANK ... BBL_REPORT
 // below) are a value-for-value copy of the private answer key's bank_profiles.py
 // (generated from it, so no Thai label was retyped); see bank_profiles.py for
-// each measurement. The BUSINESS forms at the end (Co 2026-10-16) exist here
-// only: each is checked against the bank's own CSV export and printed totals.
+// each measurement. The BUSINESS forms at the end (Co 2026-10-16) were measured
+// here first, then given to the answer key, which must read them identically.
 // Every column bound is in PDF points from the left page edge, measured on a
 // real statement of that bank.
 // A word belongs to the column its CENTRE falls in (lo inclusive, hi exclusive).
@@ -524,12 +524,13 @@ const EXIM = profile({
   },
 });
 
-// "ACCOUNT ACTIVITY HISTORY REPORT" - the bank does not print its own name
-// (ask the team which bank). The other party's bank, account and name print on
-// lines under each transaction. No brought-forward line: the printed totals
-// confirm the opening worked back.
-const ACT_HIST = profile({
-  key: "acthist", bank: "Account Activity History Report (ไม่มีชื่อธนาคาร)",
+// Bangkok Bank "ACCOUNT ACTIVITY HISTORY REPORT" (Co 2026-10-16: the bank is
+// BBL - the report does not print its own name). A third BBL form, unlike the
+// statement and the Transaction Report: oldest line first, the other party's
+// bank, account and name on lines under each transaction. No brought-forward
+// line: the printed totals confirm the opening worked back.
+const BBL_ACTIVITY = profile({
+  key: "bblact", bank: "BBL Account Activity History (ธนาคารกรุงเทพ)",
   // Column headings measured on the real PDF: the photo reader lines a photo up by these.
   anchors: [{ text: "Description", x0: 138.8, y0: 105.4 }, { text: "Debit", x0: 295.8, y0: 105.4 }, { text: "Credit", x0: 352.3, y0: 105.4 }, { text: "Balance", x0: 414.2, y0: 105.4 }, { text: "Channel", x0: 463.0, y0: 105.4 }],
   columns: [
@@ -569,7 +570,7 @@ const ACT_HIST = profile({
 // The business forms come first: each is told by marks its personal cousin
 // never prints, and K-BIZ carries the personal KBank's footer too.
 // bblreport before bbl: the report's footer carries BBL's identifying name too.
-export const PROFILES = { scbbiz: SCB_BIZ, kbiz: KBIZ, ttbbiz: TTB_BIZ, uobbiz: UOB_BIZ, exim: EXIM, acthist: ACT_HIST,
+export const PROFILES = { scbbiz: SCB_BIZ, kbiz: KBIZ, ttbbiz: TTB_BIZ, uobbiz: UOB_BIZ, exim: EXIM, bblact: BBL_ACTIVITY,
   kbank: KBANK, scb: SCB, ktb: KTB, uob: UOB, bblreport: BBL_REPORT, bbl: BBL, kkp: KKP, ktbcorp: KTB_CORP };
 
 

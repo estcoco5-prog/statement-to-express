@@ -175,7 +175,7 @@ test('Account Activity History Report: the other party on the lines below, label
     [95, 144, 'Bank/Branch: MADE-UP'], [95, 155, 'Account Number: 999XXX999'], [95, 165, 'Account Name: ACME CO'], [95, 175, 'Reference:'],
     [300, 192, 'Total Debit : 0.00'], [300, 212, 'Total Credit : 300.00'],
   ]);
-  assert.equal(s.profile.key, 'acthist');
+  assert.equal(s.profile.key, 'bblact');
   assert.equal(s.facts.account_no, '9999999999');
   assert.equal(s.rows[0].description, 'TRF FR OTH BK AC MADE-UP 999XXX999 ACME CO');
   assert.equal(s.rows[0].deposit, 30000);
