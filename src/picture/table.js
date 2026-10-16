@@ -23,6 +23,40 @@ import { identify } from '../engine/profiles.js';
 const MONEY = /^[-+(]?(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2}\)?(?:-|dr|cr)?$/i;
 const MONEY_LOOSE = /^[-+(]?[\d,.]*\d[.,]\d{2}\)?-?$/;                 // before repair
 const DATE = /^\d{1,2}[-/.]\d{1,2}[-/.](?:\d{2}|\d{4})$/;
+// A Thai month written out (K-BIZ "01-มิ.ย.-2569"), and one whose month could
+// not be read ("01-9.0.-2569"): the second still marks the date column, and
+// its line is left to check (table/columns.js cannot read it as a date).
+const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+const THAI_DATE = /^(\d{1,2})-?([ก-๎]{1,3}\.[ก-๎]{1,2}\.?)-?((?:25|20)\d{2})$/;
+const MONTH_UNREAD = /^\d{1,2}-[^-\s]{1,8}-(?:25|20)\d{2}$/;
+const isDate = t => DATE.test(t) || THAI_DATE.test(t) || MONTH_UNREAD.test(t);
+// The photo reader cuts such a date into letters ("01-", "ม", "ิ", ".", "ย",
+// ".-2569"): side by side on a line, they are put back together - only when
+// the whole spells a day, a Thai month and a year.
+export function joinThaiDates(words, ch) {
+  const out = [];
+  for (const l of linesOf(words, ch)) {
+    const ws = l.words;
+    for (let i = 0; i < ws.length; i++) {
+      let found = null;
+      if (/^\d{1,2}-?$|^\d{1,2}-[ก-๎]/.test(ws[i].text)) {
+        let text = ws[i].text;
+        for (let j = i + 1; j < Math.min(ws.length, i + 9) && ws[j].x0 - ws[j - 1].x1 <= ch; j++) {
+          text += ws[j].text;
+          const m = THAI_DATE.exec(text);
+          const month = m && (THAI_MONTHS.includes(m[2]) ? m[2] : THAI_MONTHS.includes(`${m[2]}.`) ? `${m[2]}.` : null);
+          if (month) found = { j, text: `${m[1]}-${month}-${m[3]}` };
+        }
+      }
+      if (!found) { out.push(ws[i]); continue; }
+      const part = ws.slice(i, found.j + 1);
+      out.push({ ...ws[i], text: found.text, x1: Math.max(...part.map(x => x.x1)),
+        y0: Math.min(...part.map(x => x.y0)), y1: Math.max(...part.map(x => x.y1)), conf: Math.min(...part.map(x => x.conf)) });
+      i = found.j;
+    }
+  }
+  return out;
+}
 // a time has a colon: "5.00" is money, not five o'clock
 const TIME = /^\d{1,2}:\d{2}(?::\d{2})?$/;
 // Thai banks' names as printed on their statements (spaces ignored): every
@@ -148,10 +182,10 @@ export function pictureTable(ocrWords, { w, h }) {
     const [x0, y0] = rotatePoint([x.x0, x.y0], -tilt, centre);
     return { ...x, x0, y0, x1: x0 + (x.x1 - x.x0), y1: y0 + (x.y1 - x.y0) };
   });
-  let words = splitGlued(passbookMarks(readingOrder(joinThai(cleanEdges(straight)))));
+  let words = joinThaiDates(splitGlued(passbookMarks(readingOrder(joinThai(cleanEdges(straight))))), ch);
   const near = (x, c) => Math.abs(x.x1 - c.right) <= 2 * ch;
   const moneyish = x => MONEY.test(x.text) || (MONEY_LOOSE.test(x.text) && !!repairMoney(x.text.replace(/^[-+(]|[)-]$/g, '')));
-  const dateish = x => DATE.test(x.text) || !!repairDate(x.text);
+  const dateish = x => isDate(x.text) || !!repairDate(x.text);
 
   // 1. The balance column: of the groups of money words sharing a right edge,
   // the one whose lines carry dates (a summary box of totals has none).
@@ -186,7 +220,11 @@ export function pictureTable(ocrWords, { w, h }) {
     if (top.chain > leaders[0].chain) scored.splice(scored.indexOf(scored.find(c => c.g === top.g)), 1), scored.unshift(top);
   }
   const best = scored[0];
-  if (!best || best.g.length < 2) return { ok: false, code: 'no-table', reason: 'no column of amounts was found in this picture' };
+  // A page holding ONE transaction (a short report): its balance column is a
+  // single figure - taken only on a dated line that also carries an amount.
+  const single = best?.g.length === 1 && datedLine.has(lineOf.get(best.g[0]))
+    && lines[lineOf.get(best.g[0])].words.filter(moneyish).length >= 2;
+  if (!best || (best.g.length < 2 && !single)) return { ok: false, code: 'no-table', reason: 'no column of amounts was found in this picture' };
   const balanceLines = [...new Set(best.g.map(x => lineOf.get(x)))].sort((p, q) => p - q);
   const first = balanceLines[0], lastBal = balanceLines[balanceLines.length - 1];
   const inRange = x => { const i = lineOf.get(x); return i >= first && i <= lastBal; };
@@ -215,9 +253,10 @@ export function pictureTable(ocrWords, { w, h }) {
   lines = linesOf(words, ch);
   const isMoneyIn = x => MONEY.test(x.text) && moneyCols.some(c => near(x, c));
   const bodyIdx = lines.map((l, i) => (l.y >= balY0 - ch && l.y <= balY1 + ch && l.words.some(isMoneyIn) ? i : -1)).filter(i => i >= 0);
-  if (bodyIdx.length < 2) return { ok: false, code: 'no-table', reason: 'fewer than 2 lines with amounts were found' };
+  if (bodyIdx.length < (single ? 1 : 2)) return { ok: false, code: 'no-table', reason: 'fewer than 2 lines with amounts were found' };
   const top = bodyIdx[0];
-  const spacing = median(bodyIdx.slice(1).map((v, k) => lines[v].y - lines[bodyIdx[k]].y)) || 2 * ch;
+  // one line: no spacing to measure, so only lines set close below it wrap into it
+  const spacing = median(bodyIdx.slice(1).map((v, k) => lines[v].y - lines[bodyIdx[k]].y)) || (single ? 1.5 : 2) * ch;
   let last = bodyIdx[bodyIdx.length - 1];
   while (last + 1 < lines.length && lines[last + 1].y - lines[last].y < 1.6 * Math.min(spacing, 3 * ch)) last++;
   const body = lines.slice(top, last + 1);
@@ -230,18 +269,22 @@ export function pictureTable(ocrWords, { w, h }) {
       ? { kind, left: median(g.map(x => x.x0)), right: Math.max(...g.map(x => x.x1)), n: g.length } : null;
   };
   const dateCol = anchored(dateish, 'date');
+  // A second date column (BBL's "Value Date" beside "Tran Date") keeps its own
+  // cell rather than running into the description; the first stays the date.
+  const date2Col = dateCol && anchored(x => isDate(x.text) && (x.x1 < dateCol.left || x.x0 > dateCol.right + ch), 'date2');
   // A time printed UNDER its date (same column) stays with the date.
   const timeFound = anchored(x => TIME.test(x.text), 'time');
   const timeCol = timeFound && !(dateCol && timeFound.left < dateCol.right && timeFound.right > dateCol.left) ? timeFound : null;
   const inDate = x => dateCol && x.x0 >= dateCol.left - 2 * ch && x.x1 <= dateCol.right + ch;
-  for (const l of lines) l.words = l.words.map(x => (inDate(x) && !DATE.test(x.text) && repairDate(x.text) ? { ...x, text: repairDate(x.text) } : x));
+  for (const l of lines) l.words = l.words.map(x => (inDate(x) && !isDate(x.text) && repairDate(x.text) ? { ...x, text: repairDate(x.text) } : x));
 
   // 4. Text columns: between the anchored columns, split wherever no line of
   // the table has text across a gap wider than a character or so.
-  const anchors = [...(dateCol ? [dateCol] : []), ...(timeCol ? [timeCol] : []), ...moneyCols];
+  const anchors = [...(dateCol ? [dateCol] : []), ...(date2Col ? [date2Col] : []), ...(timeCol ? [timeCol] : []), ...moneyCols];
   const anchorOf = x => {
     if (MONEY.test(x.text)) { const c = moneyCols.find(c => near(x, c)); if (c) return c; }
-    if (dateCol && DATE.test(x.text) && inDate(x)) return dateCol;
+    if (dateCol && isDate(x.text) && inDate(x)) return dateCol;
+    if (date2Col && isDate(x.text) && x.x0 >= date2Col.left - 2 * ch && x.x1 <= date2Col.right + ch) return date2Col;
     if (timeCol && TIME.test(x.text) && x.x0 >= timeCol.left - ch && x.x1 <= timeCol.right + ch) return timeCol;
     return null;
   };
@@ -307,7 +350,7 @@ export function pictureTable(ocrWords, { w, h }) {
   // No heading read: name the columns by what they hold. Which amount column
   // is withdrawals is NOT guessed - the running balance decides direction.
   const others = moneyCols.filter(c => !c.balance);
-  const headRow = header ? header.cells : columns.map((c, k) => (c === dateCol ? 'Date' : c === timeCol ? 'Time'
+  const headRow = header ? header.cells : columns.map((c, k) => (c === dateCol ? 'Date' : c === date2Col ? 'Date (2nd column)' : c === timeCol ? 'Time'
     : c.balance ? 'Balance' : c.kind === 'money' ? AMOUNT_NAMES[others.indexOf(c)] ?? `Amount (column ${others.indexOf(c) + 1})` : `Text ${k + 1}`));
   const tableLines = header ? lines.slice(header.at + header.n, last + 1) : body;
 
@@ -318,7 +361,7 @@ export function pictureTable(ocrWords, { w, h }) {
   let prevOwn = false;
   for (const l of tableLines) {
     const cells = cellsOf([l]);
-    const own = l.words.some(isMoneyIn) || l.words.some(x => DATE.test(x.text));
+    const own = l.words.some(isMoneyIn) || l.words.some(x => isDate(x.text));
     if (!own && rows.length > 1 && prevOwn) {
       const prev = rows[rows.length - 1];
       cells.forEach((c, k) => { if (c) prev[k] = prev[k] ? `${prev[k]} ${c}` : c; });

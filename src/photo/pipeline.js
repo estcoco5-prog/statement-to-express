@@ -6,6 +6,7 @@ import { alignPage } from './align.js';
 import { deskewAngle, rotatePoint } from './geometry.js';
 import { identify, columnOf, PROFILES } from '../engine/profiles.js';
 import { fitAnchors } from './align.js';
+import { joinThaiDates } from '../picture/table.js';
 
 const NO_HEADINGS = "Could not find this bank's column headings in the photo. / หาหัวคอลัมน์ของธนาคารในรูปไม่พบ";
 const NO_LAYOUT = 'This bank has no layout on file yet. / ธนาคารนี้ยังไม่มีรูปแบบในระบบ';
@@ -36,14 +37,23 @@ export function photoPage(ocrWords, { w, h }) {
   const binPx = Math.max(2, sharp.medianHeight / 4);
   const tilt = deskewAngle(sure.map(x => [(x.x0 + x.x1) / 2, (x.y0 + x.y1) / 2]), 5, binPx) ?? 0;
   const centre = [w / 2, h / 2];
-  const straight = ocrWords.map(x => {
+  // K-BIZ dates the reader cut into letters are put back together first
+  const straight = joinThaiDates(ocrWords.map(x => {
     const [x0, y0] = rotatePoint([x.x0, x.y0], -tilt, centre);
     return { ...x, x0, y0, x1: x0 + (x.x1 - x.x0), y1: y0 + (x.y1 - x.y0) };
-  });
+  }), sharp.medianHeight);
 
   // The bank's name mark first; if the reader lost it (cut off, misread),
   // the bank whose column headings fit the page - alone, never a tie.
-  const profile = identify(straight.map(x => x.text).join(' ')) ?? byHeadings(joinThai(cleanEdges(straight)));
+  // A mark two forms share (KBank's personal statement and K-BIZ both print
+  // "K-BIZ Contact Center") can name the wrong one: when the headings fit
+  // another bank's form (3 or more) and fit the named one by fewer than 3,
+  // the headings decide.
+  const tidy = joinThai(cleanEdges(straight));
+  const marked = identify(straight.map(x => x.text).join(' '));
+  const headed = byHeadings(tidy);
+  const profile = marked && headed && headed !== marked
+    && (fitAnchors(tidy, marked.anchors ?? [])?.matched ?? 0) < MIN_HEADINGS_TO_NAME_BANK ? headed : marked ?? headed;
   // No table headings but a bank's summary mark: a summary page (Co
   // 2026-10-07: UOB sets include it). Kept for the period and account facts.
   const summaryOf = () => summaryPage(straight, { w, tilt, centre });

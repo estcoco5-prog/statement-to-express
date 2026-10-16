@@ -55,3 +55,15 @@ test('a short piece next to a tall one joins by the taller height; four pieces j
   const fit = fitAnchors(words, [{ text: 'วันที่/เวลา', x0: 40, y0: 231.8 }, { text: 'ยอดเงินคงเหลือ', x0: 471.2, y0: 236.2 }]);
   assert.equal(fit?.matched, 2);
 });
+
+// A heading word read again elsewhere ("Debit" in "Total Debit" under a
+// one-line table): with 3 others agreeing, the stray one is set aside.
+test('three agreeing headings outvote one read in the wrong place; two against one is still refused', () => {
+  const four = [...anchors, { text: 'Deposit', x0: 390, y0: 200 }];
+  const words = [word('Date', 40, 200), word('Balance', 480, 200), word('Withdrawal', 300, 200), word('Deposit', 390, 290)];
+  const fit = fitAnchors(words, four);
+  assert.equal(fit?.matched, 3);
+  assert.ok(Math.abs(fit.scale - 0.4) < 1e-6);
+  // a heading read twice is ambiguous, not a vote
+  assert.equal(fitAnchors([word('Date', 40, 200), word('Balance', 480, 200), word('Balance', 480, 260), word('Withdrawal', 100, 260)], anchors), null);
+});

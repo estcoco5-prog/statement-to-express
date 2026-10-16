@@ -137,6 +137,9 @@ export async function readStatement(name, bytes, passwords = [], bank = null, pd
   const checks = buildChecks(opening, rows, closing, facts);
   const statement = new Statement(name, profile, facts, opening, rows, closing, checks);
   statement.fromPhoto = pages.source === 'photo';
+  // A photo with a bank's table on it but no line read: every other check
+  // passes with nothing to check, which must never read as yellow.
+  if (statement.fromPhoto && !rows.length) checks.push(['Lines were read from the photo', false, 'no transaction line could be read - retake the photo']);
   return statement;
 }
 

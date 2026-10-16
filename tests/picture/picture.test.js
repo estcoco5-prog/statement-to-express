@@ -618,3 +618,72 @@ test('a bank\'s own PDF (figures as text) is told apart from a scan, for Picture
   assert.equal(await moneyTextIn(miniPdf([], { image: true }), pdfjs), 0, 'a scan has no text');
   assert.equal(await moneyTextIn(new Uint8Array([1, 2, 3]), pdfjs), 0, 'a broken file counts as no text');
 });
+
+// Business forms from pictures (track 4, 2026-10-16). All figures invented.
+// A K-BIZ date the reader cuts into letters, written out as the pieces it gives.
+const pieces = (parts, x0, y) => {
+  let x = x0;
+  return parts.map(t => { const w = word(t, x, y); x = w.x1 + 1; return w; });
+};
+function thaiDatePage(dates, { carried = null } = {}) {
+  const words = [word('MADE-UP', 40, 40), word('BANK', 140, 40), ...TITLE,
+    word('วันที่', 40, 160), word('รายการ', 260, 160), word('ถอน', 520, 160), word('ฝาก', 700, 160), word('คงเหลือ', 900, 160)];
+  const lines = [['', 'ยอดยกมา', '', '', '1,000.00'], ['', 'รับโอน', '', '250.00', '1,250.00'], ['', 'โอนออก', '200.50', '', '1,049.50']];
+  lines.forEach(([, desc, wd, dp, bal], i) => {
+    const y = 220 + i * 40;
+    if (i) words.push(...pieces(dates[i - 1], 40, y));
+    words.push(word(desc, 260, y));
+    if (wd) words.push(right(wd, 640, y));
+    if (dp) words.push(right(dp, 820, y));
+    words.push(right(bal, 1020, y));
+  });
+  if (carried) words.push(word('ยอดยกไป', 260, 340), right(carried, 1020, 340));
+  return words;
+}
+const MONTH = ['01-', 'ม', 'ิ', '.', 'ย', '.-2569'];
+// a title line with figures, as a real page has (the sharpness check counts them)
+const TITLE = [['111-2-33344-5', 40], ['01/06/2026', 260], ['30/06/2026', 420], ['Page', 600], ['1', 660], ['of', 690], ['1', 730], ['02/07/2026', 800]]
+  .map(([t, x]) => word(t, x, 80));
+
+test('a Thai-month date the reader cut into letters is put back together as the date column', () => {
+  const t = pictureTable(thaiDatePage([MONTH, ['02-', 'ม', 'ิ', '.', 'ย', '.-2569']]), { w: 1200, h: 800 });
+  assert.ok(t.ok);
+  assert.equal(t.map.date, 0);
+  assert.deepEqual(t.rows.slice(2).map(r => r[0]), ['01-มิ.ย.-2569', '02-มิ.ย.-2569']);
+  const s = tableStatement('p', [{ name: 'p', rows: t.rows, dayFirst: t.dayFirst }], t.map, { openingText: '1,000.00', closingText: '1,049.50' });
+  assert.deepEqual(s.rows.map(r => r.date), ['2026-06-01', '2026-06-02']);
+});
+
+test('a Thai month misread as figures still marks the date column, and its line is left to check', () => {
+  const t = pictureTable(thaiDatePage([MONTH, ['02-9.0.-2569']]), { w: 1200, h: 800 });
+  assert.equal(t.map.date, 0);
+  assert.equal(t.rows[3][0], '02-9.0.-2569');           // as read, never a guessed month
+  const lit = pictureLights([{ name: 'p', ...t }], { openingText: '1,000.00', closingText: '1,049.50' });
+  assert.notEqual(lit.rows[0][3].light, 'green');
+  // pieces that do not spell a Thai month are left as read
+  const u = pictureTable(thaiDatePage([['01-', 'ก', '.', 'x', '.-2569'], MONTH]), { w: 1200, h: 800 });
+  assert.notEqual(u.rows[2][0], '01-ก.x.-2569');
+});
+
+test('a carried-forward line repeating the balance above is left out; a different balance stays to check', () => {
+  const same = pictureTable(thaiDatePage([MONTH, MONTH], { carried: '1,049.50' }), { w: 1200, h: 800 });
+  const s = tableStatement('p', [{ name: 'p', rows: same.rows }], same.map, { openingText: '1,000.00' });
+  assert.equal(s.rows.length, 2);
+  const other = pictureTable(thaiDatePage([MONTH, MONTH], { carried: '9,049.50' }), { w: 1200, h: 800 });
+  assert.equal(tableStatement('p', [{ name: 'p', rows: other.rows }], other.map, { openingText: '1,000.00' }).rows.length, 3);
+});
+
+test('a page with one transaction is a table; a second date column keeps its own cell', () => {
+  const words = [word('MADE-UP', 40, 40), word('BANK', 140, 40), ...TITLE, word('Tran', 40, 160), word('Value', 200, 160),
+    word('Description', 360, 160), word('Credit', 700, 160), word('Balance', 900, 160),
+    word('26/06/2026', 40, 220), word('27/06/2026', 200, 220), word('Transfer', 360, 220), right('344.23', 820, 220), right('426.63', 1020, 220),
+    word('Total', 600, 320), word('Credit', 680, 320), right('344.23', 950, 320)];
+  const t = pictureTable(words, { w: 1200, h: 800 });
+  assert.ok(t.ok, t.reason);
+  assert.equal(t.rows.length, 2);
+  const [row] = t.rows.slice(1);
+  assert.equal(row[t.map.date], '26/06/2026');
+  assert.ok(row.includes('27/06/2026') && row[t.map.description] === 'Transfer');
+  // one figure alone, with no amount beside it, is still no table
+  assert.equal(pictureTable([...TITLE, word('26/06/2026', 40, 220), right('426.63', 1020, 220)], { w: 1200, h: 800 }).ok, false);
+});

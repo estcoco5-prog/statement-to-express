@@ -409,7 +409,7 @@ const KBIZ = profile({
 const TTB_BIZ = profile({
   key: "ttbbiz", bank: "ttb business one (ทีทีบี ธุรกิจ)",
   // Column headings measured on the real PDF: the photo reader lines a photo up by these.
-  anchors: [{ text: "เลขที่เช็ค", x0: 238.1, y0: 261.0 }, { text: "ฝาก", x0: 400.3, y0: 261.0 }, { text: "ยอดคงเหลือ", x0: 517.3, y0: 257.7 }],
+  anchors: [{ text: "ถอน", x0: 217.8, y0: 266.2 }, { text: "เลขที่เช็ค", x0: 238.1, y0: 261.0 }, { text: "ฝาก", x0: 400.3, y0: 261.0 }, { text: "ยอดคงเหลือ", x0: 517.3, y0: 257.7 }],
   columns: [
     col("date", 20.0, 76.0),
     col("time", 76.0, 118.0),

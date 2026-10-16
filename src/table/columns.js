@@ -232,6 +232,15 @@ export function tableLines(rows, map, { file = 1, header = -1, opening = null, l
       else skipped.push(`${where}: a brought-forward line`);
       return;
     }
+    // The carried-forward row at a page's foot (K-BIZ "ยอดยกไป"): no date, no
+    // amount, the balance of the line above - nothing new, so left out. A
+    // different balance stays a line to check.
+    const above = lines[lines.length - 1];
+    if (noAmount && date.blank && CARRIED.test(words) && above && bal.cents !== null
+      && above.balance === (bal.sign === '-' ? -bal.cents : bal.cents)) {
+      skipped.push(`${where}: a carried-forward line`);
+      return;
+    }
     const notes = [];
     let amount = null, sign = null;
     const filled = [['withdrawal', wd, '-'], ['deposit', dp, '+'], ['amount', am, null], ['amount2', am2, null]].filter(([, x]) => !x.blank);

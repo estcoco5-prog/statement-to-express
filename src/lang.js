@@ -135,6 +135,8 @@ const RULES = [
   [/^(\d+) of (\d+) rows verified$/, 'ตรวจผ่าน $1 จาก $2 รายการ'],
   [/^(\d+) could not be$/, 'ตรวจยืนยันไม่ได้ $1 รายการ'],
   [/^Dates never go backwards$/, 'วันที่ไม่ย้อนหลัง'],
+  [/^Lines were read from the photo$/, 'อ่านรายการจากรูปได้'],
+  [/^no transaction line could be read - retake the photo$/, 'อ่านรายการไม่ได้เลย - ถ่ายรูปใหม่'],
   [/^in order$/, 'เรียงตามลำดับ'],
   [/^(\S+) comes after (\S+)$/, '$1 อยู่ถัดจาก $2 (วันที่ย้อนหลัง)'],
   [/^Final balance matches the closing balance the bank printed$/, 'ยอดคงเหลือสุดท้ายตรงกับยอดคงเหลือปลายงวดที่ธนาคารพิมพ์'],

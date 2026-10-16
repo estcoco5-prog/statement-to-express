@@ -33,17 +33,39 @@ function headingCandidates(words) {
   return out;
 }
 
-// Scale and shift from the bank's column headings found in the photo. Each
-// heading must be read exactly once; at least 2 must be found, and every one
-// found must land within TOLERANCE_PT of where the bank prints it.
+// Scale and shift from the bank's column headings found in the photo. A
+// heading word may be read more than once ("Debit" again in "Total Debit"
+// below the table): of all the places read, the headings that agree with one
+// another win - the largest set landing together within TOLERANCE_PT of where
+// the bank prints them, at most one place per heading. At least 2 must agree.
+const MAX_HITS = 1;               // a heading read twice is ambiguous: left out
 export function fitAnchors(words, anchors) {
   const candidates = headingCandidates(words);
-  const pairs = [];
-  for (const a of anchors) {
-    const hits = [...new Set(candidates.filter(c => c.text === bare(a.text)).map(c => c.first))];
-    if (hits.length === 1) pairs.push([hits[0], a]);
+  const found = anchors.map(a => [...new Set(candidates.filter(c => c.text === bare(a.text)).map(c => c.first))])
+    .map(hits => (hits.length <= MAX_HITS ? hits : []));
+  const place = (p, s, dx, dy) => [p.x0 * s + dx, p.y0 * s + dy];
+  const near = ([x, y], a) => Math.abs(x - a.x0) <= TOLERANCE_PT && Math.abs(y - a.y0) <= TOLERANCE_PT;
+  // every two headings, each where it was read, propose a scale and shift;
+  // the proposal most headings agree with is kept
+  let basis = null;
+  for (let i = 0; i < anchors.length; i++) for (let j = i + 1; j < anchors.length; j++) {
+    for (const p of found[i]) for (const q of found[j]) {
+      const read = Math.hypot(p.x0 - q.x0, p.y0 - q.y0);
+      if (read < 1) continue;
+      const span = Math.hypot(anchors[i].x0 - anchors[j].x0, anchors[i].y0 - anchors[j].y0);
+      const s = span / read;
+      const dx = (anchors[i].x0 - p.x0 * s + anchors[j].x0 - q.x0 * s) / 2;
+      const dy = (anchors[i].y0 - p.y0 * s + anchors[j].y0 - q.y0 * s) / 2;
+      const agree = anchors.map((a, k) => found[k].find(h => near(place(h, s, dx, dy), a)) ?? null);
+      const n = agree.filter(Boolean).length;
+      if (!basis || n > basis.n || (n === basis.n && span > basis.span)) basis = { n, span, agree };
+    }
   }
-  if (pairs.length < 2) return null;
+  if (!basis || basis.n < 2) return null;
+  // a heading read in the wrong place is set aside only when at least 3 others
+  // agree: 2 against 1 is a disagreement, refused as before
+  if (basis.n < found.filter(h => h.length).length && basis.n < 3) return null;
+  const pairs = basis.agree.map((h, k) => (h ? [h, anchors[k]] : null)).filter(Boolean);
   // Scale from the widest-apart pair, shift from the mean of all pairs.
   let best = null;
   for (let i = 0; i < pairs.length; i++) for (let j = i + 1; j < pairs.length; j++) {

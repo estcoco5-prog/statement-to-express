@@ -8,6 +8,8 @@ import { readStatement, statusOf } from '../../src/engine/statement.js';
 import { kbankPageWords } from './madeup.js';
 import { PROFILES } from '../../src/engine/profiles.js';
 import { TINY_JPEG } from './tinyjpeg.js';
+import { word } from '../helpers.js';
+import { headerLines, txLine } from '../fixtures.js';
 
 // The made-up KBank page as a phone would see it: scaled, shifted, tilted.
 function asPhoto(words, { scale = 2.5, tilt = 1.5, dx = 40, dy = 70 } = {}) {
@@ -194,4 +196,29 @@ test('review file from photos: every row says which page it is on', async () => 
   assert.equal(head[head.length - 1], 'Photo page');
   assert.deepEqual(st.rows.map(r => r.page), [2, 2, 2, 2]);
   assert.equal(tx.rows[2][head.length - 1].value, 2);
+});
+
+// K-BIZ pages print "K-BIZ Contact Center" too, the mark of KBank's personal
+// statement: the K-BIZ headings, fitting 4 times where KBank's fit none, decide.
+test('a K-BIZ photo carrying the KBank mark is named by its own headings', () => {
+  const kbizPage = () => [...headerLines(), ...PROFILES.kbiz.anchors.map(a => word(a.text, a.x0, a.y0)),
+    ...txLine(205, { date: '09-06-26', desc: 'made up', withdraw: '10,000.00', balance: '21,234.56' }),
+    word('K-BIZ', 66, 800), word('Contact', 100, 800), word('Center', 140, 800)];
+  const page = photoPage(asPhoto(kbizPage()), { w: 1600, h: 2200 });
+  assert.equal(page.ok, true, page.reason);
+  assert.equal(page.bank, 'kbiz');
+  // the KBank page itself is still KBank
+  assert.equal(photoPage(asPhoto(kbankPageWords()), { w: 1600, h: 2200 }).bank, 'kbank');
+});
+
+// A photo whose table yields no line (2026-10-16, a business form misread):
+// with nothing to check every other check passes - it must be red, not yellow.
+test('a photo with no line read is red, never yellow', async () => {
+  const noLines = kbankPageWords().filter(w => !/^\d{2}-\d{2}-\d{2}$|^[\d,]+\.\d{2}$/.test(w.text) || w.y0 < 200);
+  // the words already where the bank prints them, as photoPage hands them on
+  const pdf = buildReadablePdf([{ jpeg: TINY_JPEG, width: 595, height: 842, words: noLines }]);
+  const st = await readStatement('photo.pdf', pdf, [], null, pdfjs);
+  if (st.rows.length) return assert.fail('the made-up page still has a line');
+  assert.equal(statusOf(st), 'red');
+  assert.ok(st.checks.some(([label, passed]) => label === 'Lines were read from the photo' && !passed));
 });
