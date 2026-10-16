@@ -9,6 +9,7 @@ import { tableStatement } from '../../src/table/statement.js';
 import { statusOf } from '../../src/engine/statement.js';
 import { groupBatch } from '../../src/engine/batch.js';
 import { miniXls } from './minixls.js';
+import { remarkFor } from '../../src/engine/output/express.js';
 
 const heading = (csvHead) => readCsv(`${csvHead}\n`)[0].rows;
 
@@ -124,4 +125,21 @@ test('an .xls that is really an HTML table, or text, is read too; anything else 
   const [t] = await readTableFile('export.xls', new TextEncoder().encode('วันที่\tรายการ\n01/06/2026\tMADE-UP\n'));
   assert.deepEqual(t.rows[1], ['01/06/2026', 'MADE-UP']);
   await assert.rejects(readTableFile('junk.xls', new TextEncoder().encode('nothing here at all')), e => e.code === 'old-xls');
+});
+
+// ttb's download names the other side only in "รายละเอียดเพิ่มเติม"; its
+// description is the same few words on most lines. Express keeps 50
+// characters, so the details go FIRST [CO-DECIDED 2026-10-16]. Made up.
+test('a "more details" column goes first in the Express remark; without one the remark is as before', async () => {
+  const csv = 'วันที่ทำรายการ,ถอน,ฝาก,ยอดคงเหลือ,รายละเอียดการทำธุรกรรม,รายละเอียดเพิ่มเติม\n'
+    + '01/06/2026,,,"1,000.00",ยอดยกมา,\n'
+    + '02/06/2026,200.00,,800.00,Transfer out via business one,MADEBANK X1234 MADE-UP COMPANY LIMITED\n';
+  const [sheet] = await readTableFile('ttb.csv', new TextEncoder().encode(csv));
+  const { map } = findColumns(sheet.rows);
+  assert.deepEqual([map.description, map.details], [4, 5]);
+  const s = tableStatement('ttb.csv', [{ name: 'ttb.csv', rows: sheet.rows }], map, { openingText: '1,000.00' });
+  assert.equal(remarkFor(s.rows[0], s.profile.remarkFields), 'MADEBANK X1234 MADE-UP COMPANY LIMITED Transfer ou');
+  const plain = readCsv('Date,Description,Withdrawal,Balance\n01/06/2026,Opening balance,,"1,000.00"\n02/06/2026,Bill payment,200.00,800.00\n')[0];
+  const p = tableStatement('p.csv', [{ name: 'p.csv', rows: plain.rows }], findColumns(plain.rows).map, { openingText: '1,000.00' });
+  assert.equal(remarkFor(p.rows[0], p.profile.remarkFields), 'Bill payment');
 });

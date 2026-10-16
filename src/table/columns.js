@@ -3,9 +3,10 @@
 // cell into a date or an amount, and says plainly what could not be read.
 // Nothing here is trusted: the balance chain decides.
 
-export const ROLES = ['date', 'description', 'withdrawal', 'deposit', 'amount', 'amount2', 'balance'];
+export const ROLES = ['date', 'description', 'details', 'withdrawal', 'deposit', 'amount', 'amount2', 'balance'];
 export const ROLE_TEXT = {
-  date: 'Date · วันที่', description: 'Description · รายการ', withdrawal: 'Withdrawal · ถอน',
+  date: 'Date · วันที่', description: 'Description · รายการ',
+  details: 'More details (first in the Express remark) · รายละเอียดเพิ่มเติม (ใส่ก่อนในหมายเหตุ Express)', withdrawal: 'Withdrawal · ถอน',
   deposit: 'Deposit · ฝาก', amount: 'Amount (+/-) · จำนวนเงิน',
   amount2: 'Amount, 2nd column (the balance decides in or out) · จำนวนเงิน คอลัมน์ที่ 2', balance: 'Balance · คงเหลือ',
 };
@@ -20,6 +21,10 @@ const HEADINGS = [
   ['amount2', ['amount(2ndcolumn)']],
   ['amount', ['จำนวนเงิน', 'amount', 'ยอดเงิน']],
   ['date', ['วันที่', 'date', 'วันเดือนปี', 'วัน/เดือน/ปี']],
+  // a bank's extra column naming who the money went to or came from (ttb
+  // "รายละเอียดเพิ่มเติม": bank, account, name - the description is only
+  // "Transfer out via business one") [CO-DECIDED 2026-10-16: first in the remark]
+  ['details', ['รายละเอียดเพิ่มเติม', 'additionaldetail', 'moredetail']],
   ['description', ['รายการ', 'รายละเอียด', 'description', 'details', 'particular', 'narrative', 'คำอธิบาย', 'transaction', 'หมายเหตุ', 'remark', 'code', 'คำย่อ']],
 ];
 const squash = v => String(v ?? '').toLowerCase().replace(/[\s_]+/g, '');
@@ -258,7 +263,7 @@ export function tableLines(rows, map, { file = 1, header = -1, opening = null, l
     const totals = date.blank && bal.blank && (!wd.blank || !dp.blank) && am.blank && am2.blank
       && [wd, dp].every(x => x.blank || x.cents !== null) ? { wd: wd.blank ? 0 : wd.cents, dp: dp.blank ? 0 : dp.cents } : null;
     lines.push({
-      page: file, line: i + 1, where, description: desc, ...(totals ? { totals } : {}),
+      page: file, line: i + 1, where, description: desc, details: String(cell(row, 'details') ?? '').trim(), ...(totals ? { totals } : {}),
       amount, sign, balance: bal.cents === null ? null : bal.sign === '-' ? -bal.cents : bal.cents,
       date: date.iso, dateNote: [date.note ? `${date.note} (${where})` : null, doubts[i] ?? null].filter(Boolean).join('; ') || null, notes, eitherWay: date.eitherWay ?? null, dateKind: date.kind ?? null, dayOver12: !!date.dayOver12,
     });

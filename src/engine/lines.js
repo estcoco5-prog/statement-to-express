@@ -25,7 +25,7 @@ const dmy = iso => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
 export function linesStatement(name, lines, profile, { opening = null, closing = null, account = null, pageWord = 'page', typedOpening, holdBrokenPages = false, totals = null, zeroLines = [] } = {}) {
   const rows = lines.map(l => {
     const r = new Row();
-    Object.assign(r, { page: l.page, line: l.line, description: l.description ?? '', printedSign: l.sign ?? null });
+    Object.assign(r, { page: l.page, line: l.line, description: l.description ?? '', details: l.details ?? '', printedSign: l.sign ?? null });
     r.amount = l.amount;
     r.balance = l.balance;
     r.date = l.date ?? '';

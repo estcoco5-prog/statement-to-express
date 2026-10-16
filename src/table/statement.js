@@ -57,7 +57,7 @@ function warningsFor(lines, map, newest = false) {
 }
 
 export const TABLE_PROFILE = {
-  key: 'excel', bank: 'Spreadsheet from a picture (Excel → Express)', remarkFields: ['description'],
+  key: 'excel', bank: 'Spreadsheet from a picture (Excel → Express)', remarkFields: ['details', 'description'],   // details first [CO-DECIDED 2026-10-16]: REMARK keeps 50 characters
   amountSplitX: null, untested: false,
 };
 
