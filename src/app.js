@@ -919,7 +919,7 @@ async function addTables(files) {
           tableFiles.push({ name, rows: sheet.rows, key });
         }
       } catch (e) {
-        errors.push(join(`⛔ ${file.name}: `, M(['old-xls', 'too-big', 'date-1904', 'own-picture-file'].includes(e.code) ? e.code : 'not-table')));
+        errors.push(join(`⛔ ${file.name}: `, M(['old-xls', 'too-big', 'date-1904', 'own-picture-file', 'own-review-file'].includes(e.code) ? e.code : 'not-table')));
       }
     }
     if (tooMany) errors.push(P(`⛔ ${tooMany} page(s) not added: at most ${MAX_PHOTOS} pages at a time`,
@@ -950,7 +950,9 @@ function clearTables() {
 }
 
 async function drawTables() {
-  $('tablePanel').hidden = !tableFiles.length;
+  // every file refused: the panel still opens, with only why (it was silent before)
+  $('tablePanel').hidden = !tableFiles.length && $('tableError').hidden;
+  $('tablePanel').classList.toggle('only-error', !tableFiles.length);
   if (!tableFiles.length) return;
   const { ROLES, ROLE_TEXT, findColumns } = await import('./table/columns.js');
   const { colLetter } = await import('./engine/output/xlsx.js');

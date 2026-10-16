@@ -67,6 +67,10 @@ export const MESSAGES = {
     th: 'ไฟล์นี้มาจากช่อง รูป → Excel ของเว็บนี้ ให้กด "แปลงเป็น Express" ที่ช่องนั้นแทน (ไฟล์ไม่ได้เก็บเหตุผลที่บางรายการถูกพักไว้)',
     en: 'This file came from the Picture → Excel card on this site. Use Convert to Express there instead - the file does not keep why some lines were held.',
   },
+  'own-review-file': {
+    th: 'ไฟล์นี้เป็นไฟล์ตรวจทาน (Review) ที่เว็บนี้สร้างเอง จึงไม่รับกลับเข้ามา เพราะไฟล์ไม่ได้เก็บว่ารายการไหนถูกพักไว้ ถ้ารับเข้ามาอาจส่งรายการเหล่านั้นไป Express ให้ใช้ไฟล์ Express ที่ดาวน์โหลดมาพร้อมกัน หรือเลือกใบแจ้งยอดต้นฉบับอีกครั้งในช่องที่สร้างไฟล์นี้',
+    en: 'This is a Review workbook this site made, so it is not taken back in: it does not keep which lines were held, and they could be sent to Express. Use the Express file downloaded with it, or choose the original statement again on the card that made it.',
+  },
   'old-xls': {
     th: 'ไฟล์ .xls นี้อ่านไม่ได้ เปิดใน Excel แล้วบันทึกเป็น .xlsx',
     en: 'This .xls file could not be read. Open it in Excel and save it as .xlsx.',

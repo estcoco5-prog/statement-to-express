@@ -11,6 +11,7 @@ import { expressFiles } from '../src/engine/output/express.js';
 import { buildWorkbook } from '../src/engine/output/review.js';
 import { pictureLights } from '../src/picture/lights.js';
 import { pictureWorkbook } from '../src/picture/excel.js';
+import { writeXlsx } from '../src/engine/output/xlsx.js';
 
 const CSV = `Statement of account
 วันที่,รายการ,ถอน,ฝาก,คงเหลือ
@@ -90,4 +91,36 @@ test('Picture -> Excel in Thai: our words Thai, the cells as read, and the app s
   const en = await readXlsx(pictureWorkbook([t], lit, {}, 'en'));
   assert.equal(en[0].name, 'Table');
   assert.match(en[0].rows[0][0], /^Read from statement pictures on this computer/);
+});
+
+// G8 #9 (Excel card unhide blockers): a Review workbook keeps every line,
+// held ones too, and the Excel card does not read why a line was held - so
+// it refuses the workbook, whole or in parts, English or Thai. A Picture ->
+// Excel file is known even with rows added above its markers.
+test('the Excel card refuses this app\'s own Review workbook, whole, one sheet, or re-saved as CSV', async () => {
+  assert.ok(statement.rows.some(r => !r.ok), 'the sample has a held line');
+  const review = () => buildWorkbook(statement.rows, statement.opening, statement.closing, statement.facts,
+    statement.checks, statement.profile, statement.name, statement.fromPhoto);
+  const asCsv = sheet => new TextEncoder().encode(sheet.rows
+    .map(r => r.map(c => `"${String(c.value ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
+  for (const sheets of [review(), thaiSheets(review())]) {
+    await assert.rejects(readTableFile('review.xlsx', writeXlsx(sheets)), { code: 'own-review-file' });
+    for (const sheet of sheets) {
+      await assert.rejects(readTableFile(`${sheet.name}.xlsx`, writeXlsx([sheet])), { code: 'own-review-file' }, sheet.name);
+      await assert.rejects(readTableFile(`${sheet.name}.csv`, asCsv(sheet)), { code: 'own-review-file' }, sheet.name);
+    }
+  }
+  // a user's rows added above the markers do not hide the file
+  const t = { name: 'p1.csv', rows: rows.slice(1), map, dayFirst: true };
+  const lit = pictureLights([t], { openingText: '1,000.00', closingText: '12,315.17' });
+  for (const lang of ['en', 'th']) {
+    const [table] = await readXlsx(pictureWorkbook([t], lit, {}, lang));
+    const padded = [...Array(10).fill(['']), ...table.rows.slice(1)]
+      .map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    await assert.rejects(readTableFile('pictures.csv', new TextEncoder().encode(padded)), { code: 'own-picture-file' }, lang);
+  }
+  // other tables are still read: a bank's own Check (cheque) column, our sample
+  const bank = new TextEncoder().encode('Date,Check,Description,Withdrawal,Deposit,Balance\n02/03/2025,1001,x,10.00,,90.00\n');
+  assert.ok((await readTableFile('bank.csv', bank)).length);
+  assert.ok((await readTableFile('page1.csv', new TextEncoder().encode(CSV))).length);
 });

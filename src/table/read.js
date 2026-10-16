@@ -215,19 +215,59 @@ async function readOldExcel(bytes) {
   throw new TableError('old-xls', 'an .xls file this app cannot read');
 }
 
+// Rows looked at for this app's own markers: a user may add rows above them.
+const OWN_WINDOW = 25;
+// This app's own Picture -> Excel file: what held its lines (a date the
+// reader was unsure of) is not in the cells, so checking it again here could
+// send them. It is converted on the Picture card instead (G8 picture-v2
+// release review). The light column was headed ไฟ before 2026-10-14 (now
+// สถานะ): both are known. A bare สถานะ is not a marker - another tool's sheet
+// may well have a status column.
+const PICTURE_MARK = /^Light · (?:ไฟ|สถานะ)$|^ไฟ$|^Read from statement pictures on this computer|^อ่านจากรูปใบแจ้งยอดในเครื่องนี้/;
+// This app's own Review workbook (any card): its Check column says why a line
+// was held, but this card does not read it, so held lines could be sent
+// (G8 #9). Known by its headings, English or Thai, and by its Proof sheet, so
+// a sheet removed, or Transactions saved alone as CSV, is still known.
+const REVIEW_HEADS = [
+  ['Check', ['Date', 'Time', 'Description', 'Withdrawal', 'Deposit', 'Balance', 'Channel', 'Details',
+    'Transactions', 'Withdrawals', 'Deposits', 'Net change', 'Closing balance']],
+  ['ผลตรวจ', ['วันที่', 'เวลา', 'รายการ', 'ถอน', 'ฝาก', 'ยอดคงเหลือ', 'ช่องทาง', 'รายละเอียด',
+    'จำนวนรายการ', 'เปลี่ยนแปลงสุทธิ', 'ยอดคงเหลือปลายงวด']],
+];
+const REVIEW_MARK = /^(?:How this file was checked|ไฟล์นี้ตรวจอย่างไร|The rule every row is tested against|กฎที่ใช้ตรวจทุกรายการ)$/;
+
+// The Thai picture file's heading row (Picture, Light, Why) once its first
+// row, the warning, is deleted.
+const PICTURE_HEADS = ['รูป', 'สถานะ', 'เหตุผล'];
+
+/** 'own-picture-file', 'own-review-file', or null for anyone else's table. */
+export function ownFileKind(sheets) {
+  const text = c => String(c ?? '').trim();
+  for (const s of sheets) {
+    const top = s.rows.slice(0, OWN_WINDOW);
+    for (const [i, row] of top.entries()) {
+      const cells = row.map(text);
+      if (cells.some(c => PICTURE_MARK.test(c)) || PICTURE_HEADS.every(h => cells.includes(h))) return 'own-picture-file';
+      if (cells.some(c => REVIEW_MARK.test(c))) return 'own-review-file';
+      // a heading row: the Check column beside at least three of its
+      // neighbours, holding words (OK, or why) - a bank's cheque column holds numbers
+      for (const [check, heads] of REVIEW_HEADS) {
+        const at = cells.indexOf(check);
+        if (at < 0 || heads.filter(h => cells.includes(h)).length < 3) continue;
+        if (s.rows.slice(i + 1).some(r => /[^\d\s.,-]/.test(text(r[at])))) return 'own-review-file';
+      }
+    }
+  }
+  return null;
+}
+
 /** A chosen file -> its sheets: .xlsx, .xls (Excel 97-2003, or an HTML/text export so named), .csv. */
 export async function readTableFile(name, bytes) {
   if (bytes.length > LIMITS.fileBytes) throw tooBig('bytes');
   const sheets = /\.xls$/i.test(name) ? await readOldExcel(bytes)
     : /\.(csv|txt)$/i.test(name) ? await readCsv(decodeText(bytes)) : await readXlsx(bytes);
-  // This app's own Picture -> Excel file: what held its lines (a date the
-  // reader was unsure of) is not in the
-  // cells, so checking it again here could send them. It is converted on the
-  // Picture card instead (G8 picture-v2 release review). The light column was
-  // headed ไฟ before 2026-10-14 (now สถานะ): both are known. A bare สถานะ is not
-  // a marker - another tool's sheet may well have a status column.
-  if (sheets.some(s => s.rows.slice(0, 3).some(r => r.some(c => /^Light · (?:ไฟ|สถานะ)$|^ไฟ$|^Read from statement pictures on this computer|^อ่านจากรูปใบแจ้งยอดในเครื่องนี้/.test(String(c ?? '').trim()))))) {
-    throw new TableError('own-picture-file', 'a Picture -> Excel file from this app');
-  }
+  const own = ownFileKind(sheets);
+  if (own) throw new TableError(own, own === 'own-review-file'
+    ? 'a Review workbook from this app' : 'a Picture -> Excel file from this app');
   return sheets;
 }

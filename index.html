@@ -77,13 +77,11 @@
       <p class="hint"><span class="l-en">Krungthai passbooks only, for now. A flat scan (PDF or JPG) works best.</span><span class="l-th">ตอนนี้ใช้ได้เฉพาะสมุดบัญชีกรุงไทย สแกนให้เรียบ (PDF หรือ JPG) จะอ่านได้ดีที่สุด</span></p>
     </div>
 
-    <!-- Excel → Express is paused (Co 2026-10-09): hidden until Co releases it; its checks run the Picture card. -->
-    <div class="tool" id="tableTool" hidden>
-      <h2><span class="l-en">Excel → Express</span><span class="l-th">Excel ที่แปลงจากรูป → Express</span></h2>
-      <p class="l-en">A spreadsheet made from statement pictures by another tool (for example a picture-to-Excel
-        website), one file per page. We find the columns, prove every line by the balance, and make the
-        Express file.</p>
-      <p class="l-th">ไฟล์ Excel ที่แปลงจากรูปใบแจ้งยอดด้วยเครื่องมืออื่น (เช่น เว็บแปลงรูปเป็น Excel) หนึ่งไฟล์ต่อหนึ่งหน้า
+    <div class="tool" id="tableTool">
+      <h2><span class="l-en">Excel / CSV → Express</span><span class="l-th">Excel / CSV → Express</span></h2>
+      <p class="l-en">A bank's own Excel or CSV download, or a spreadsheet made from statement pictures by another tool
+        (one file per page). We find the columns, prove every line by the balance, and make the Express file.</p>
+      <p class="l-th">ไฟล์ Excel หรือ CSV ที่ดาวน์โหลดจากธนาคาร หรือไฟล์ Excel ที่แปลงจากรูปใบแจ้งยอดด้วยเครื่องมืออื่น (หนึ่งไฟล์ต่อหนึ่งหน้า)
         ระบบหาคอลัมน์ ตรวจทุกบรรทัดกับยอดคงเหลือ แล้วสร้างไฟล์ Express</p>
       <label class="btn primary" for="tablePicker"><span class="l-en">Choose Excel / CSV</span><span class="l-th">เลือกไฟล์ Excel / CSV</span></label>
       <input type="file" id="tablePicker" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" multiple hidden>
@@ -218,7 +216,7 @@
     <ul>
       <li><span class="l-en">🟡 Other banks: tried with a general reader, not tested yet</span><span class="l-th">🟡 ธนาคารอื่น: ลองอ่านด้วยตัวอ่านทั่วไป ยังไม่ได้ทดสอบ</span></li>
       <li><span class="l-en">📷 Photos and scanned PDFs: use Statement photos → Express - the 7 banks above only, never better than 🟡</span><span class="l-th">📷 รูปถ่ายและไฟล์สแกน: ใช้ช่อง "รูปถ่ายใบแจ้งยอด → Express" (เฉพาะ 7 ธนาคารข้างบน ผลดีที่สุดคือ 🟡)</span></li>
-      <li><span class="l-en">📊 A spreadsheet made from pictures (any bank): use Excel → Express - every line proved by its balance, never better than 🟡</span><span class="l-th">📊 ไฟล์ Excel ที่แปลงจากรูป (ธนาคารใดก็ได้): ใช้ช่อง "Excel ที่แปลงจากรูป → Express" ทุกบรรทัดตรวจกับยอดคงเหลือ ผลดีที่สุดคือ 🟡</span></li>
+      <li><span class="l-en">📊 A bank's Excel/CSV download, or a spreadsheet made from pictures (any bank): use Excel / CSV → Express - every line proved by its balance, never better than 🟡</span><span class="l-th">📊 ไฟล์ Excel/CSV ที่ดาวน์โหลดจากธนาคาร หรือไฟล์ Excel ที่แปลงจากรูป (ธนาคารใดก็ได้): ใช้ช่อง "Excel / CSV → Express" ทุกบรรทัดตรวจกับยอดคงเหลือ ผลดีที่สุดคือ 🟡</span></li>
       <li><span class="l-en">📒 Passbooks: use Passbook → Express - Krungthai passbooks only, never better than 🟠 (the last line is always checked by hand)</span><span class="l-th">📒 สมุดบัญชี: ใช้ช่อง "สมุดบัญชี → Express" (เฉพาะกรุงไทย ผลดีที่สุดคือ 🟠 เพราะบรรทัดสุดท้ายต้องตรวจเองเสมอ)</span></li>
     </ul>
     <p class="hint"><span class="l-en">🟢 proved and confirmed · 🟡 amounts proved; check dates and descriptions by eye ·
