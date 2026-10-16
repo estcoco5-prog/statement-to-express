@@ -21,6 +21,14 @@ export const MESSAGES = {
     th: 'รหัสผ่านไม่ถูกต้อง ลองอีกครั้ง',
     en: 'That password is not right. Try again.',
   },
+  'locked-pdf': {
+    th: 'PDF นี้ล็อกด้วยรหัสผ่าน ช่องนี้เปิดไฟล์ที่ล็อกไม่ได้ ให้ใช้ไฟล์ที่ไม่มีรหัสผ่าน',
+    en: 'This PDF is locked with a password. This card cannot open locked files - use a copy without a password.',
+  },
+  'locked-excel': {
+    th: 'ไฟล์ Excel นี้ล็อกด้วยรหัสผ่าน ช่องนี้เปิดไฟล์ที่ล็อกไม่ได้ เปิดใน Excel แล้วเอารหัสผ่านออก (ไฟล์ > ข้อมูล > ป้องกันเวิร์กบุ๊ก) แล้วเลือกไฟล์ใหม่',
+    en: 'This Excel file is locked with a password. This card cannot open locked files - open it in Excel, remove the password (File > Info > Protect Workbook), and choose it again.',
+  },
   'not-pdf': {
     th: 'ไฟล์นี้ไม่ใช่ PDF ที่เปิดได้ (เช่น รูปภาพ หรือไฟล์ Excel)',
     en: 'This is not a PDF that can be opened (for example a photo or an Excel file).',

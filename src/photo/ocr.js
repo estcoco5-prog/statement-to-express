@@ -107,9 +107,18 @@ export async function readPhoto(file, onStatus) {
 }
 
 // A picture-only PDF (a scan) -> one JPEG File per page, for the photo path.
+// A locked PDF is refused, not unlocked: the team does not send locked
+// pictures (Co 2026-10-16), so it only needs to say why.
 export async function picturesFromPdf(bytes, pdfjs) {
   const task = pdfjs.getDocument({ data: bytes });
-  const doc = await task.promise;
+  let doc;
+  try {
+    doc = await task.promise;
+  } catch (e) {
+    await task.destroy();
+    if (e?.name === 'PasswordException') throw Object.assign(new Error('a password-locked PDF'), { code: 'locked-pdf' });
+    throw e;
+  }
   try {
     const files = [];
     for (let n = 1; n <= doc.numPages; n++) {

@@ -225,7 +225,12 @@ function show(entries) {
       b.type = 'button';
       b.addEventListener('click', async () => {
         const { picturesFromPdf } = await import('./photo/ocr.js');
-        addPhotos(await picturesFromPdf(new Uint8Array(await fileOf.get(r.name).arrayBuffer()), pdfjs));
+        try {
+          addPhotos(await picturesFromPdf(new Uint8Array(await fileOf.get(r.name).arrayBuffer()), pdfjs));
+        } catch (e) {
+          // a scan opened here with its password: the photo path cannot unlock it
+          b.replaceWith(el('p', 'bad', M(e?.code === 'locked-pdf' ? 'locked-pdf' : 'not-pdf')));
+        }
       });
       card.append(b);
     }
@@ -375,8 +380,8 @@ async function addPictures(files, { asPictures = false } = {}) {
           if (pictures.length >= MAX_PHOTOS) { tooMany++; return; }
           pictures.push({ file: f, name: `${file.name} #${i + 1}`, thumb: URL.createObjectURL(f) });
         });
-      } catch {
-        pictureError(join(`⛔ ${file.name}: `, M('not-pdf')));
+      } catch (e) {
+        pictureError(join(`⛔ ${file.name}: `, M(e?.code === 'locked-pdf' ? 'locked-pdf' : 'not-pdf')));
       } finally {
         say('');
       }
@@ -403,11 +408,14 @@ function clearPictures() {
   $('pictureAccount').value = '';
   $('picturePassbook').checked = false;
   offerBankPdf([]);
+  pictureError('');
   drawPictures();
 }
 
 function drawPictures() {
-  $('picturePanel').hidden = !pictures.length;
+  // every file refused: the panel still opens, with only why
+  $('picturePanel').hidden = !pictures.length && $('pictureError').hidden;
+  $('picturePanel').classList.toggle('only-error', !pictures.length);
   $('pictureResult').hidden = !pictureTables;
   $('pictureDone').hidden = !pictureTables;
   $('pictureList').replaceChildren(...pictures.map((p, i) => {
@@ -780,8 +788,8 @@ async function addPassbookFiles(files) {
         say(P(`Opening ${file.name}`, `กำลังเปิด ${file.name}`));
         const pages = await picturesFromPdf(new Uint8Array(await file.arrayBuffer()), pdfjs);
         pages.forEach((f, i) => passbookPages.push({ file: f, name: `${file.name} #${i + 1}`, thumb: URL.createObjectURL(f) }));
-      } catch {
-        passbookError(join(`⛔ ${file.name}: `, M('not-pdf')));
+      } catch (e) {
+        passbookError(join(`⛔ ${file.name}: `, M(e?.code === 'locked-pdf' ? 'locked-pdf' : 'not-pdf')));
       } finally {
         say('');
       }
@@ -798,11 +806,14 @@ function clearPassbook() {
   for (const p of passbookPages) URL.revokeObjectURL(p.thumb);
   passbookPages = [];
   $('passbookAccount').value = '';
+  passbookError('');
   drawPassbook();
 }
 
 function drawPassbook() {
-  $('passbookPanel').hidden = !passbookPages.length;
+  // every file refused: the panel still opens, with only why
+  $('passbookPanel').hidden = !passbookPages.length && $('passbookError').hidden;
+  $('passbookPanel').classList.toggle('only-error', !passbookPages.length);
   $('passbookList').replaceChildren(...passbookPages.map((p, i) => {
     const img = el('img', 'thumb');
     img.src = p.thumb;
@@ -919,7 +930,7 @@ async function addTables(files) {
           tableFiles.push({ name, rows: sheet.rows, key });
         }
       } catch (e) {
-        errors.push(join(`⛔ ${file.name}: `, M(['old-xls', 'too-big', 'date-1904', 'own-picture-file', 'own-review-file'].includes(e.code) ? e.code : 'not-table')));
+        errors.push(join(`⛔ ${file.name}: `, M(['old-xls', 'too-big', 'date-1904', 'own-picture-file', 'own-review-file', 'locked-excel'].includes(e.code) ? e.code : 'not-table')));
       }
     }
     if (tooMany) errors.push(P(`⛔ ${tooMany} page(s) not added: at most ${MAX_PHOTOS} pages at a time`,
@@ -946,6 +957,7 @@ function clearTables() {
   $('tableClosing').value = '';
   $('tableOpening').value = '';
   $('tableSkipped').hidden = true;
+  tableError('');
   drawTables();
 }
 

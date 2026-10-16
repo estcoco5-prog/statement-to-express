@@ -179,7 +179,7 @@ export function readXls(bytes) {
   if (!recs.length || recs[0].type !== 0x0809 || u16(recs[0].data, 0) !== 0x0600) {
     throw new TableError('not-table', 'an Excel 5 or older .xls file (only Excel 97-2003 is read)');
   }
-  if (recs.some(r => r.type === 0x002f)) throw new TableError('not-table', 'a password-protected .xls file');
+  if (recs.some(r => r.type === 0x002f)) throw new TableError('locked-excel', 'a password-protected .xls file');
   if (recs.some(r => r.type === 0x0022 && u16(r.data, 0) === 1)) {
     throw new TableError('date-1904', 'dates counted from 1904');
   }

@@ -261,9 +261,24 @@ export function ownFileKind(sheets) {
   return null;
 }
 
+// A password-locked .xlsx is not a zip but a compound file holding an
+// EncryptionInfo stream. It is refused, not unlocked: the team does not send
+// locked files (Co 2026-10-16), so it only needs to say why.
+const ENCRYPTED = [...'EncryptionInfo'].flatMap(ch => [ch.charCodeAt(0), 0]);
+export function isLockedExcel(bytes) {
+  const MAGIC = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
+  if (bytes.length < 512 || !MAGIC.every((v, i) => bytes[i] === v)) return false;
+  outer: for (let i = 0; i <= bytes.length - ENCRYPTED.length; i++) {
+    for (let j = 0; j < ENCRYPTED.length; j++) if (bytes[i + j] !== ENCRYPTED[j]) continue outer;
+    return true;
+  }
+  return false;
+}
+
 /** A chosen file -> its sheets: .xlsx, .xls (Excel 97-2003, or an HTML/text export so named), .csv. */
 export async function readTableFile(name, bytes) {
   if (bytes.length > LIMITS.fileBytes) throw tooBig('bytes');
+  if (isLockedExcel(bytes)) throw new TableError('locked-excel', 'a password-locked Excel file');
   const sheets = /\.xls$/i.test(name) ? await readOldExcel(bytes)
     : /\.(csv|txt)$/i.test(name) ? await readCsv(decodeText(bytes)) : await readXlsx(bytes);
   const own = ownFileKind(sheets);

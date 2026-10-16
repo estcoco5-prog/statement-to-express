@@ -55,8 +55,10 @@ p{margin:6px 0}
 label.tick { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; cursor: pointer; }
 label.tick input { margin-top: 4px; width: 18px; height: 18px; flex: none; }
 .tool[hidden]{display:none}
-/* Excel card: every file refused - show only the heading and why */
-#tablePanel.only-error > :not(h2):not(#tableError){display:none}
+/* every file refused - show only the heading and why */
+#tablePanel.only-error > :not(h2):not(#tableError),
+#picturePanel.only-error > :not(h2):not(#pictureError),
+#passbookPanel.only-error > :not(h2):not(#passbookError){display:none}
 .tool.dragging{border:2px dashed var(--accent); background:var(--accent-soft)}
 .tool.link:hover{border-color:var(--accent)}
 /* cards in a row line their buttons up; Photos → PDF (a link to another app) is a slim strip across the bottom */
